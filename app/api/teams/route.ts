@@ -1,4 +1,7 @@
 import { db } from '@/lib/db';
+import { authOptions } from '@/lib/auth';
+import { isTeacher } from '@/lib/teachers';
+import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -61,4 +64,27 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, deviceCode });
+}
+
+// DELETE /api/teams?classId=X&teamId=Y  — מחיקת צוות (מורה בלבד)
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!isTeacher(session?.user?.email)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const classId = normalizeClassId(searchParams.get('classId') || '');
+  const teamId = searchParams.get('teamId') || '';
+
+  if (!classId || !teamId) {
+    return NextResponse.json({ error: 'missing params' }, { status: 400 });
+  }
+
+  await db.execute({
+    sql: 'DELETE FROM teams WHERE class_id = ? AND team_id = ?',
+    args: [classId, teamId],
+  });
+
+  return NextResponse.json({ ok: true });
 }

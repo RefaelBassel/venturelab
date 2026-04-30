@@ -241,6 +241,7 @@ function Dashboard({ email, name }: { email: string; name: string }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [modalTeam, setModalTeam] = useState<TeamRow | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // טען class id שמור
@@ -289,6 +290,31 @@ function Dashboard({ email, name }: { email: string; name: string }) {
       localStorage.setItem(TEACHER_CLASS_KEY, t);
     } catch {}
     setClassId(t);
+  };
+
+  const removeTeam = async (team: TeamRow) => {
+    const projectName = team.data.ventureName || 'ללא שם';
+    const members =
+      team.data.teamMembers.filter((m) => m.trim()).join(', ') || 'ללא חברי צוות';
+    const ok = window.confirm(
+      `האם למחוק את הצוות "${projectName}" (${members})?\n\nפעולה זו אינה ניתנת לביטול — כל נתוני הצוות יימחקו.`,
+    );
+    if (!ok) return;
+
+    setDeletingId(team.teamId);
+    setErr('');
+    try {
+      const res = await fetch(
+        `/api/teams?classId=${encodeURIComponent(classId)}&teamId=${encodeURIComponent(team.teamId)}`,
+        { method: 'DELETE' },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setTeams((prev) => prev.filter((t) => t.teamId !== team.teamId));
+    } catch {
+      setErr('שגיאה במחיקת הצוות. נסו שוב.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const stats = useMemo(() => {
@@ -547,19 +573,40 @@ function Dashboard({ email, name }: { email: string; name: string }) {
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => setModalTeam(t)}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: 10,
-                    border: '1px solid var(--primary)',
-                    background: '#eef2ff',
-                    color: 'var(--primary-dark)',
-                    fontWeight: 700,
-                  }}
-                >
-                  פרטים
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => setModalTeam(t)}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 10,
+                      border: '1px solid var(--primary)',
+                      background: '#eef2ff',
+                      color: 'var(--primary-dark)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    פרטים
+                  </button>
+                  <button
+                    onClick={() => removeTeam(t)}
+                    disabled={deletingId === t.teamId}
+                    title="מחק צוות"
+                    aria-label="מחק צוות"
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: '1px solid #fecaca',
+                      background: '#fee2e2',
+                      color: '#991b1b',
+                      fontWeight: 700,
+                      opacity: deletingId === t.teamId ? 0.6 : 1,
+                      cursor:
+                        deletingId === t.teamId ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {deletingId === t.teamId ? '⏳' : '🗑'}
+                  </button>
+                </div>
               </div>
             );
           })}
