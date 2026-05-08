@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Maskable icon: full-bleed background (no transparency).
+    Android applies a circular mask, so all artwork lives inside the inner 80%
+    safe zone — a circle of radius 205px centered at (256,256), or roughly
+    coordinates 51..461 on each axis.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed background — required for maskable -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Rocket, centered around (256,256), entirely inside safe zone -->
+  <g transform="translate(256 256)">
+    <!-- Flame (drawn first, behind body) -->
+    <path d="M -42 80 Q -28 150 0 170 Q 28 150 42 80 Z" fill="url(#flame)"/>
+    <path d="M -22 95 Q -8 135 0 150 Q 8 135 22 95 Z" fill="#fef3c7"/>
+
+    <!-- Body -->
+    <path d="M 0 -130
+             C -45 -100, -60 -45, -60 25
+             L -60 80
+             L 60 80
+             L 60 25
+             C 60 -45, 45 -100, 0 -130 Z"
+          fill="#ffffff" stroke="#1e293b" stroke-width="6"/>
+
+    <!-- Window -->
+    <circle cx="0" cy="-30" r="26" fill="#6366f1" stroke="#1e293b" stroke-width="6"/>
+    <circle cx="-9" cy="-39" r="7" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Fins -->
+    <path d="M -60 30 L -110 95 L -60 75 Z"
+          fill="#ffffff" stroke="#1e293b" stroke-width="6"/>
+    <path d="M 60 30 L 110 95 L 60 75 Z"
+          fill="#ffffff" stroke="#1e293b" stroke-width="6"/>
+
+    <!-- Body seam highlight -->
+    <line x1="-60" y1="20" x2="60" y2="20"
+          stroke="#1e293b" stroke-width="4" opacity="0.25"/>
+  </g>
+</svg>

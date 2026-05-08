@@ -1,0 +1,21 @@
+{
+  "name": "VentureLab — מעבדת המיזמים",
+  "short_name": "VentureLab",
+  "description": "כלי לתכנון מיזם חברתי בשיעורי מחשבת ישראל",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#6366f1",
+  "background_color": "#6366f1",
+  "lang": "he",
+  "dir": "rtl",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
