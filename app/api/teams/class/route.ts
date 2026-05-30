@@ -26,16 +26,34 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await db.execute({
-    sql: 'SELECT team_id, device_code, data, updated_at FROM teams WHERE class_id = ? ORDER BY updated_at DESC',
+    sql: `SELECT
+            t.team_id, t.device_code, t.data, t.updated_at,
+            g.data AS grade_data, g.graded_by, g.updated_at AS grade_updated_at
+          FROM teams t
+          LEFT JOIN grades g
+            ON g.class_id = t.class_id AND g.team_id = t.team_id
+          WHERE t.class_id = ?
+          ORDER BY t.updated_at DESC`,
     args: [classId],
   });
 
-  const teams = result.rows.map((row) => ({
-    teamId: row.team_id as string,
-    deviceCode: row.device_code as string,
-    data: JSON.parse(row.data as string),
-    updatedAt: Number(row.updated_at),
-  }));
+  const teams = result.rows.map((row) => {
+    const gradeRaw = row.grade_data as string | null;
+    const grade = gradeRaw
+      ? {
+          ...JSON.parse(gradeRaw),
+          gradedBy: (row.graded_by as string) || null,
+          updatedAt: Number(row.grade_updated_at),
+        }
+      : null;
+    return {
+      teamId: row.team_id as string,
+      deviceCode: row.device_code as string,
+      data: JSON.parse(row.data as string),
+      updatedAt: Number(row.updated_at),
+      grade,
+    };
+  });
 
   return NextResponse.json({ teams });
 }

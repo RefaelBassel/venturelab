@@ -23,4 +23,18 @@ export async function initDb() {
   await db.execute(`
     CREATE INDEX IF NOT EXISTS idx_teams_device ON teams(class_id, device_code)
   `);
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS grades (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL,
+      team_id TEXT NOT NULL,
+      data TEXT NOT NULL,
+      graded_by TEXT,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      UNIQUE(class_id, team_id)
+    )
+  `);
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_grades_class ON grades(class_id)
+  `);
 }

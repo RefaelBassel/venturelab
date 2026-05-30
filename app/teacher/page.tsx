@@ -4,12 +4,22 @@ import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { Project, emptyProject } from '@/lib/types';
 import { isTeacher } from '@/lib/teachers';
+import {
+  Grade,
+  RUBRIC_SECTIONS,
+  RUBRIC_TOTAL,
+  clamp,
+  emptyGrade,
+  gradeTotal,
+  isGraded,
+} from '@/lib/rubric';
 
 interface TeamRow {
   teamId: string;
   deviceCode: string;
   data: Project;
   updatedAt: number;
+  grade: Grade | null;
 }
 
 const TEACHER_CLASS_KEY = 'venturelab_teacher_classid';
@@ -241,6 +251,7 @@ function Dashboard({ email, name }: { email: string; name: string }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [modalTeam, setModalTeam] = useState<TeamRow | null>(null);
+  const [gradeTeam, setGradeTeam] = useState<TeamRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -290,6 +301,64 @@ function Dashboard({ email, name }: { email: string; name: string }) {
       localStorage.setItem(TEACHER_CLASS_KEY, t);
     } catch {}
     setClassId(t);
+  };
+
+  const saveGrade = async (team: TeamRow, grade: Grade) => {
+    const res = await fetch('/api/teams/grade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId, teamId: team.teamId, data: grade }),
+    });
+    if (!res.ok) throw new Error('save failed');
+    // Update local state with the new grade so the badge updates immediately
+    setTeams((prev) =>
+      prev.map((t) => (t.teamId === team.teamId ? { ...t, grade } : t)),
+    );
+    setGradeTeam((cur) =>
+      cur && cur.teamId === team.teamId ? { ...cur, grade } : cur,
+    );
+  };
+
+  const exportCsv = () => {
+    if (teams.length === 0) return;
+    const headers = [
+      'שם המיזם',
+      'חברי הצוות',
+      'קוד מכשיר',
+      ...RUBRIC_SECTIONS.map((s) => `${s.label} (/${s.max})`),
+      `סה"כ (/${RUBRIC_TOTAL})`,
+      'הערה כללית',
+    ];
+    const escape = (s: string | number) => {
+      const str = String(s ?? '');
+      if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+      return str;
+    };
+    const rows = teams.map((t) => {
+      const g = t.grade;
+      const scoreCols = RUBRIC_SECTIONS.map((s) =>
+        g ? String(clamp(g.scores?.[s.id] || 0, 0, s.max)) : '',
+      );
+      return [
+        t.data.ventureName || 'ללא שם',
+        t.data.teamMembers.filter((m) => m.trim()).join(', '),
+        t.deviceCode,
+        ...scoreCols,
+        g ? String(gradeTotal(g)) : '',
+        g?.general || '',
+      ]
+        .map(escape)
+        .join(',');
+    });
+    // UTF-8 BOM so Excel opens Hebrew correctly
+    const csv = '﻿' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `venturelab-${classId}-grades.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const removeTeam = async (team: TeamRow) => {
@@ -459,18 +528,47 @@ function Dashboard({ email, name }: { email: string; name: string }) {
         )}
 
         {stats && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 12,
-              marginBottom: 20,
-            }}
-          >
-            <StatCard label="סה״כ צוותים" value={String(stats.total)} />
-            <StatCard label="צוותים שסיימו 7+ שלבים" value={String(stats.finished)} />
-            <StatCard label="ממוצע שלבים שהושלמו" value={`${stats.avg} / 7`} />
-          </div>
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <StatCard label="סה״כ צוותים" value={String(stats.total)} />
+              <StatCard
+                label="צוותים שסיימו 7+ שלבים"
+                value={String(stats.finished)}
+              />
+              <StatCard
+                label="ממוצע שלבים שהושלמו"
+                value={`${stats.avg} / 7`}
+              />
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                marginBottom: 20,
+              }}
+            >
+              <button
+                onClick={exportCsv}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                }}
+              >
+                ⬇️ ייצוא ציונים (CSV)
+              </button>
+            </div>
+          </>
         )}
 
         {!classId && (
@@ -550,6 +648,21 @@ function Dashboard({ email, name }: { email: string; name: string }) {
                     >
                       {badge.text}
                     </span>
+                    {isGraded(t.grade) && (
+                      <span
+                        title="ציון מחוון"
+                        style={{
+                          background: '#ede9fe',
+                          color: '#5b21b6',
+                          padding: '3px 10px',
+                          borderRadius: 999,
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        ★ {gradeTotal(t.grade)}/{RUBRIC_TOTAL}
+                      </span>
+                    )}
                     <span
                       style={{
                         fontSize: '0.78rem',
@@ -573,7 +686,7 @@ function Dashboard({ email, name }: { email: string; name: string }) {
                     </span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => setModalTeam(t)}
                     style={{
@@ -586,6 +699,19 @@ function Dashboard({ email, name }: { email: string; name: string }) {
                     }}
                   >
                     פרטים
+                  </button>
+                  <button
+                    onClick={() => setGradeTeam(t)}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 10,
+                      border: '1px solid #c4b5fd',
+                      background: '#ede9fe',
+                      color: '#5b21b6',
+                      fontWeight: 700,
+                    }}
+                  >
+                    ★ מחוון
                   </button>
                   <button
                     onClick={() => removeTeam(t)}
@@ -615,6 +741,13 @@ function Dashboard({ email, name }: { email: string; name: string }) {
 
       {modalTeam && (
         <TeamModal team={modalTeam} onClose={() => setModalTeam(null)} />
+      )}
+      {gradeTeam && (
+        <GradeModal
+          team={gradeTeam}
+          onClose={() => setGradeTeam(null)}
+          onSave={saveGrade}
+        />
       )}
     </div>
   );
@@ -896,6 +1029,407 @@ function ModalSection({
         {title}
       </div>
       <div>{children}</div>
+    </div>
+  );
+}
+
+// ---------- Grade Modal ----------
+function GradeModal({
+  team,
+  onClose,
+  onSave,
+}: {
+  team: TeamRow;
+  onClose: () => void;
+  onSave: (team: TeamRow, grade: Grade) => Promise<void>;
+}) {
+  const project = useMemo(
+    () => ({ ...emptyProject(), ...team.data }),
+    [team.data],
+  );
+  const [grade, setGrade] = useState<Grade>(
+    () => team.grade || emptyGrade(),
+  );
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const total = gradeTotal(grade);
+
+  const setScore = (sid: string, raw: string) => {
+    const section = RUBRIC_SECTIONS.find((s) => s.id === sid);
+    if (!section) return;
+    const n = raw === '' ? 0 : parseFloat(raw);
+    const val = clamp(isFinite(n) ? n : 0, 0, section.max);
+    setGrade((prev) => ({
+      ...prev,
+      scores: { ...prev.scores, [sid]: val },
+    }));
+  };
+
+  const setNote = (sid: string, val: string) => {
+    setGrade((prev) => ({
+      ...prev,
+      notes: { ...prev.notes, [sid]: val },
+    }));
+  };
+
+  const setGeneral = (val: string) => {
+    setGrade((prev) => ({ ...prev, general: val }));
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    setErr('');
+    try {
+      await onSave(team, grade);
+      onClose();
+    } catch {
+      setErr('שגיאה בשמירה. נסו שוב.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        zIndex: 100,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'white',
+          borderRadius: 16,
+          padding: 0,
+          maxWidth: 820,
+          width: '100%',
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
+        }}
+      >
+        {/* Sticky header */}
+        <div
+          style={{
+            padding: '18px 22px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: '1.3rem',
+                fontWeight: 900,
+                color: 'var(--primary)',
+              }}
+            >
+              ★ מחוון — {project.ventureName || 'ללא שם'}
+            </div>
+            <div
+              style={{
+                fontSize: '0.85rem',
+                color: 'var(--text-light)',
+                marginTop: 2,
+              }}
+            >
+              {project.teamMembers.filter((m) => m.trim()).join(', ') ||
+                'ללא חברי צוות'}
+            </div>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                background: '#ede9fe',
+                color: '#5b21b6',
+                padding: '8px 16px',
+                borderRadius: 999,
+                fontWeight: 900,
+                fontSize: '1.05rem',
+              }}
+            >
+              {total} / {RUBRIC_TOTAL}
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                border: 'none',
+                background: '#f1f5f9',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                fontSize: '1.2rem',
+              }}
+              aria-label="סגור"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div
+          style={{
+            padding: '18px 22px',
+            overflowY: 'auto',
+            flex: 1,
+            display: 'grid',
+            gap: 14,
+          }}
+        >
+          {RUBRIC_SECTIONS.map((section, idx) => {
+            const score = grade.scores?.[section.id] || 0;
+            const note = grade.notes?.[section.id] || '';
+            const rows = section.preview(project);
+            return (
+              <section
+                key={section.id}
+                style={{
+                  background: '#f8fafc',
+                  borderRadius: 12,
+                  padding: 14,
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: 10,
+                    marginBottom: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: 'var(--primary-dark)',
+                      fontSize: '1rem',
+                    }}
+                  >
+                    {idx + 1}. {section.label}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={section.max}
+                      step={0.5}
+                      value={score}
+                      onChange={(e) => setScore(section.id, e.target.value)}
+                      style={{
+                        width: 64,
+                        padding: '6px 8px',
+                        border: '2px solid var(--border)',
+                        borderRadius: 8,
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        background: 'white',
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: '0.9rem',
+                        color: 'var(--text-light)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      / {section.max}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.82rem',
+                    color: 'var(--text-light)',
+                    marginBottom: 10,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  {section.description}
+                </div>
+                {rows.length > 0 && (
+                  <div
+                    style={{
+                      background: 'white',
+                      borderRadius: 10,
+                      padding: 10,
+                      marginBottom: 10,
+                      border: '1px dashed var(--border)',
+                      display: 'grid',
+                      gap: 4,
+                    }}
+                  >
+                    {rows.map((r, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns:
+                            'minmax(90px, 130px) 1fr',
+                          gap: 10,
+                          fontSize: '0.88rem',
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            color: 'var(--text-light)',
+                          }}
+                        >
+                          {r.label}
+                        </div>
+                        <div>{r.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(section.id, e.target.value)}
+                  placeholder="הערה (אופציונלי)"
+                  rows={2}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: '2px solid var(--border)',
+                    borderRadius: 8,
+                    fontSize: '0.92rem',
+                    background: 'white',
+                    minHeight: 56,
+                    resize: 'vertical',
+                  }}
+                />
+              </section>
+            );
+          })}
+
+          {/* General feedback */}
+          <section
+            style={{
+              background: '#fffbeb',
+              borderRadius: 12,
+              padding: 14,
+              border: '1px solid #fde68a',
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 800,
+                color: '#92400e',
+                marginBottom: 8,
+              }}
+            >
+              💬 הערה כללית למשוב
+            </div>
+            <textarea
+              value={grade.general || ''}
+              onChange={(e) => setGeneral(e.target.value)}
+              placeholder="משוב כללי לצוות, מה הם עשו טוב ומה לשפר…"
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '2px solid #fde68a',
+                borderRadius: 8,
+                fontSize: '0.95rem',
+                background: 'white',
+                minHeight: 80,
+                resize: 'vertical',
+              }}
+            />
+          </section>
+
+          {grade.updatedAt && (
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-light)',
+                textAlign: 'center',
+              }}
+            >
+              נשמר לאחרונה ב-
+              {new Date(grade.updatedAt * 1000).toLocaleString('he-IL')}
+              {grade.gradedBy ? ` ע"י ${grade.gradedBy}` : ''}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: '14px 22px',
+            borderTop: '1px solid var(--border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          {err ? (
+            <span style={{ color: '#991b1b', fontSize: '0.9rem' }}>{err}</span>
+          ) : (
+            <span style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>
+              סה״כ:{' '}
+              <b style={{ color: '#5b21b6', fontSize: '1rem' }}>
+                {total} / {RUBRIC_TOTAL}
+              </b>
+            </span>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 10,
+                border: '2px solid var(--border)',
+                background: 'white',
+                fontWeight: 600,
+              }}
+            >
+              ביטול
+            </button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              style={{
+                padding: '10px 22px',
+                borderRadius: 10,
+                border: 'none',
+                background: saving ? '#cbd5e1' : 'var(--primary)',
+                color: 'white',
+                fontWeight: 800,
+              }}
+            >
+              {saving ? 'שומר…' : 'שמור ציון'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
