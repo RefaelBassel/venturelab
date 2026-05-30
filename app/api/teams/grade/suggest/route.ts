@@ -173,7 +173,8 @@ export async function POST(req: NextRequest) {
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-8',
       max_tokens: 4096,
-      thinking: { type: 'adaptive' },
+      // thinking cannot be combined with forced tool_choice — API returns 400.
+      // The structured output via tool_choice alone is sufficient for graded scoring.
       system: [
         {
           type: 'text',
