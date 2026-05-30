@@ -745,6 +745,7 @@ function Dashboard({ email, name }: { email: string; name: string }) {
       {gradeTeam && (
         <GradeModal
           team={gradeTeam}
+          classId={classId}
           onClose={() => setGradeTeam(null)}
           onSave={saveGrade}
         />
@@ -1036,10 +1037,12 @@ function ModalSection({
 // ---------- Grade Modal ----------
 function GradeModal({
   team,
+  classId,
   onClose,
   onSave,
 }: {
   team: TeamRow;
+  classId: string;
   onClose: () => void;
   onSave: (team: TeamRow, grade: Grade) => Promise<void>;
 }) {
@@ -1051,9 +1054,49 @@ function GradeModal({
     () => team.grade || emptyGrade(),
   );
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [err, setErr] = useState('');
+  const [info, setInfo] = useState('');
 
   const total = gradeTotal(grade);
+
+  const suggest = async () => {
+    setSuggesting(true);
+    setErr('');
+    setInfo('');
+    try {
+      const res = await fetch('/api/teams/grade/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classId, teamId: team.teamId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error || `שגיאה ${res.status}`);
+        return;
+      }
+      const s = json.suggestion as {
+        scores: Record<string, number>;
+        notes: Record<string, string>;
+        general: string;
+      };
+      // אכוף את הטווח לכל סעיף ושמור בטופס
+      const scores: Record<string, number> = {};
+      for (const sec of RUBRIC_SECTIONS) {
+        scores[sec.id] = clamp(s.scores?.[sec.id] || 0, 0, sec.max);
+      }
+      setGrade({
+        scores,
+        notes: { ...s.notes },
+        general: s.general || '',
+      });
+      setInfo('הצעה התקבלה — אפשר לאשר כפי שהיא, או לערוך כל ציון/הערה לפני שמירה.');
+    } catch {
+      setErr('שגיאת רשת בקריאה ל-Claude.');
+    } finally {
+      setSuggesting(false);
+    }
+  };
 
   const setScore = (sid: string, raw: string) => {
     const section = RUBRIC_SECTIONS.find((s) => s.id === sid);
@@ -1156,8 +1199,26 @@ function GradeModal({
               display: 'flex',
               alignItems: 'center',
               gap: 10,
+              flexWrap: 'wrap',
             }}
           >
+            <button
+              onClick={suggest}
+              disabled={suggesting || saving}
+              title="ייצור הצעת ציון עם Claude AI — אפשר לערוך לפני שמירה"
+              style={{
+                padding: '8px 14px',
+                borderRadius: 10,
+                border: '1px solid #c4b5fd',
+                background: suggesting ? '#ede9fe' : '#f5f3ff',
+                color: '#5b21b6',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                cursor: suggesting ? 'wait' : 'pointer',
+              }}
+            >
+              {suggesting ? '✨ מנתח…' : '✨ הצע ציון'}
+            </button>
             <div
               style={{
                 background: '#ede9fe',
@@ -1186,6 +1247,20 @@ function GradeModal({
             </button>
           </div>
         </div>
+
+        {info && (
+          <div
+            style={{
+              padding: '10px 22px',
+              background: '#dbeafe',
+              color: '#1e3a8a',
+              fontSize: '0.88rem',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            ℹ️ {info}
+          </div>
+        )}
 
         {/* Scrollable body */}
         <div
