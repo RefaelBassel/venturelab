@@ -1,15 +1,12 @@
 import { db } from '@/lib/db';
 import { authOptions } from '@/lib/auth';
 import { isTeacher } from '@/lib/teachers';
+import { normalizeClassId } from '@/lib/classId';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function normalizeClassId(raw: string) {
-  return (raw || '').trim().replace(/\//g, '').replace(/\s+/g, '-');
-}
 
 // GET /api/teams/grade?classId=X&teamId=Y  — קריאת ציון של צוות (מורה בלבד)
 export async function GET(req: NextRequest) {

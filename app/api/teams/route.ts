@@ -1,19 +1,12 @@
 import { db } from '@/lib/db';
 import { authOptions } from '@/lib/auth';
 import { isTeacher } from '@/lib/teachers';
+import { normalizeClassId, toDeviceCode } from '@/lib/classId';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function normalizeClassId(raw: string) {
-  return (raw || '').trim().replace(/\//g, '').replace(/\s+/g, '-');
-}
-
-function toDeviceCode(teamId: string) {
-  return teamId.replace(/-/g, '').slice(0, 8).toUpperCase();
-}
 
 // GET /api/teams?classId=X&teamId=Y  — טעינת נתוני צוות
 export async function GET(req: NextRequest) {

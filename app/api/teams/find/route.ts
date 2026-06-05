@@ -1,12 +1,9 @@
 import { db } from '@/lib/db';
+import { normalizeClassId } from '@/lib/classId';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function normalizeClassId(raw: string) {
-  return (raw || '').trim().replace(/\//g, '').replace(/\s+/g, '-');
-}
 
 // GET /api/teams/find?classId=X&deviceCode=ABCD1234
 export async function GET(req: NextRequest) {

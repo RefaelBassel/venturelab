@@ -5,15 +5,12 @@ import { isTeacher } from '@/lib/teachers';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { RUBRIC_SECTIONS, RUBRIC_TOTAL } from '@/lib/rubric';
+import { normalizeClassId } from '@/lib/classId';
 import { Project, emptyProject } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-function normalizeClassId(raw: string) {
-  return (raw || '').trim().replace(/\//g, '').replace(/\s+/g, '-');
-}
 
 // טקסט קבוע — נשמר בקאש כדי לחסוך עלות במורה שמדרג כמה צוותים ברצף
 const SYSTEM_PROMPT = `אתה עוזר מורה מנוסה במחשבת ישראל, מסייע להעריך תיק מיזם חברתי תאורטי שהגישו תלמידי כיתה י' בזוגות. אינך מורה מחליף — המורה האנושי הוא הקובע הסופי, ותפקידך לתת הצעה ראשונית מנומקת לכל סעיף שהמורה יוכל לאשר או לעדכן.

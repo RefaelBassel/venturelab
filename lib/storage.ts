@@ -1,4 +1,8 @@
 import { Project, emptyProject } from './types';
+import { normalizeClassId, toDeviceCode } from './classId';
+
+// re-export so existing imports from '@/lib/storage' keep working
+export { normalizeClassId, toDeviceCode };
 
 const STORAGE_KEY = 'venturelab_project';
 const CLASS_KEY = 'venturelab_classid';
@@ -13,14 +17,6 @@ export function genId(): string {
       return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
     });
   }
-}
-
-export function toDeviceCode(teamId: string): string {
-  return teamId.replace(/-/g, '').slice(0, 8).toUpperCase();
-}
-
-export function normalizeClassId(raw: string): string {
-  return (raw || '').trim().replace(/\//g, '').replace(/\s+/g, '-');
 }
 
 export function loadLocal(): Project {
