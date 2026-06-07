@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { Project, emptyProject } from '@/lib/types';
+import { Project, TeamContact, emptyProject } from '@/lib/types';
 import { isTeacher } from '@/lib/teachers';
 import {
   Grade,
@@ -13,6 +13,13 @@ import {
   gradeTotal,
   isGraded,
 } from '@/lib/rubric';
+import {
+  defaultMessageTemplate,
+  emailSubject,
+  personalize,
+  waLink,
+  mailtoLink,
+} from '@/lib/notify';
 
 interface TeamRow {
   teamId: string;
@@ -746,6 +753,7 @@ function Dashboard({ email, name }: { email: string; name: string }) {
         <GradeModal
           team={gradeTeam}
           classId={classId}
+          teacherName={name}
           onClose={() => setGradeTeam(null)}
           onSave={saveGrade}
         />
@@ -1038,11 +1046,13 @@ function ModalSection({
 function GradeModal({
   team,
   classId,
+  teacherName,
   onClose,
   onSave,
 }: {
   team: TeamRow;
   classId: string;
+  teacherName?: string;
   onClose: () => void;
   onSave: (team: TeamRow, grade: Grade) => Promise<void>;
 }) {
@@ -1057,6 +1067,54 @@ function GradeModal({
   const [suggesting, setSuggesting] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
+
+  // --- שליחה לתלמידים ---
+  const memberNames = useMemo(
+    () => project.teamMembers.filter((m) => m.trim()),
+    [project.teamMembers],
+  );
+  const [showSend, setShowSend] = useState(false);
+  const [includeSections, setIncludeSections] = useState(true);
+  const [message, setMessage] = useState<string>('');
+
+  const buildMessage = (withSections: boolean) =>
+    setMessage(
+      defaultMessageTemplate({
+        project,
+        grade,
+        teacherName,
+        includeSections: withSections,
+      }),
+    );
+
+  const getContact = (name: string): TeamContact =>
+    (grade.contacts || []).find((c) => c.name === name) || {
+      name,
+      phone: '',
+      email: '',
+    };
+
+  const setContact = (
+    name: string,
+    field: 'phone' | 'email',
+    value: string,
+  ) => {
+    setGrade((prev) => {
+      const contacts = [...(prev.contacts || [])];
+      const i = contacts.findIndex((c) => c.name === name);
+      if (i >= 0) contacts[i] = { ...contacts[i], [field]: value };
+      else contacts.push({ name, phone: '', email: '', [field]: value });
+      return { ...prev, contacts };
+    });
+  };
+
+  const openLink = (url: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.click();
+  };
 
   const total = gradeTotal(grade);
 
@@ -1085,11 +1143,12 @@ function GradeModal({
       for (const sec of RUBRIC_SECTIONS) {
         scores[sec.id] = clamp(s.scores?.[sec.id] || 0, 0, sec.max);
       }
-      setGrade({
+      setGrade((prev) => ({
         scores,
         notes: { ...s.notes },
         general: s.general || '',
-      });
+        contacts: prev.contacts, // שמור פרטי קשר שכבר הוזנו
+      }));
       setInfo('הצעה התקבלה — אפשר לאשר כפי שהיא, או לערוך כל ציון/הערה לפני שמירה.');
     } catch {
       setErr('שגיאת רשת בקריאה ל-Claude.');
@@ -1435,6 +1494,265 @@ function GradeModal({
                 resize: 'vertical',
               }}
             />
+          </section>
+
+          {/* Send to students */}
+          <section
+            style={{
+              background: '#eff6ff',
+              borderRadius: 12,
+              padding: 14,
+              border: '1px solid #bfdbfe',
+            }}
+          >
+            <button
+              onClick={() => {
+                const next = !showSend;
+                setShowSend(next);
+                if (next && !message) buildMessage(includeSections);
+              }}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 800,
+                color: '#1e40af',
+                fontSize: '1rem',
+              }}
+            >
+              <span>📤 שליחת ההערכה לתלמידים</span>
+              <span>{showSend ? '▲' : '▼'}</span>
+            </button>
+
+            {showSend && (
+              <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={includeSections}
+                      onChange={(e) => {
+                        setIncludeSections(e.target.checked);
+                        buildMessage(e.target.checked);
+                      }}
+                      style={{ width: 16, height: 16 }}
+                    />
+                    כלול פירוט סעיפים בהודעה
+                  </label>
+                  <button
+                    onClick={() => buildMessage(includeSections)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      background: 'white',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    ↻ בנה הודעה מחדש מהציון
+                  </button>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      fontSize: '0.82rem',
+                      color: 'var(--text-light)',
+                      marginBottom: 4,
+                    }}
+                  >
+                    תוכן ההודעה (ניתן לעריכה). הסימן{' '}
+                    <code
+                      style={{
+                        background: '#dbeafe',
+                        padding: '1px 5px',
+                        borderRadius: 4,
+                      }}
+                    >
+                      [שם]
+                    </code>{' '}
+                    יוחלף אוטומטית בשם כל תלמיד/ה.
+                  </div>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={8}
+                    placeholder="לחצו על 'בנה הודעה מחדש מהציון' כדי ליצור טיוטה…"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '2px solid #bfdbfe',
+                      borderRadius: 8,
+                      fontSize: '0.9rem',
+                      background: 'white',
+                      minHeight: 160,
+                      resize: 'vertical',
+                      lineHeight: 1.6,
+                    }}
+                  />
+                </div>
+
+                {memberNames.length === 0 ? (
+                  <div
+                    style={{
+                      fontSize: '0.88rem',
+                      color: 'var(--text-light)',
+                    }}
+                  >
+                    לא הוזנו שמות חברי צוות במיזם זה.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {memberNames.map((name) => {
+                      const c = getContact(name);
+                      const text = personalize(message, name);
+                      const subject = emailSubject(project);
+                      const hasMsg = message.trim().length > 0;
+                      return (
+                        <div
+                          key={name}
+                          style={{
+                            background: 'white',
+                            borderRadius: 10,
+                            padding: 10,
+                            border: '1px solid var(--border)',
+                            display: 'grid',
+                            gap: 8,
+                          }}
+                        >
+                          <div style={{ fontWeight: 700 }}>{name}</div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <input
+                              value={c.phone}
+                              onChange={(e) =>
+                                setContact(name, 'phone', e.target.value)
+                              }
+                              placeholder="טלפון (לוואטסאפ)"
+                              inputMode="tel"
+                              style={{
+                                flex: 1,
+                                minWidth: 130,
+                                padding: '8px 10px',
+                                border: '2px solid var(--border)',
+                                borderRadius: 8,
+                                fontSize: '0.9rem',
+                              }}
+                            />
+                            <button
+                              onClick={() =>
+                                openLink(waLink(c.phone, text))
+                              }
+                              disabled={!c.phone.trim() || !hasMsg}
+                              style={{
+                                padding: '8px 14px',
+                                borderRadius: 8,
+                                border: 'none',
+                                background:
+                                  c.phone.trim() && hasMsg
+                                    ? '#22c55e'
+                                    : '#cbd5e1',
+                                color: 'white',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              📱 וואטסאפ
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <input
+                              value={c.email}
+                              onChange={(e) =>
+                                setContact(name, 'email', e.target.value)
+                              }
+                              placeholder="מייל"
+                              inputMode="email"
+                              style={{
+                                flex: 1,
+                                minWidth: 130,
+                                padding: '8px 10px',
+                                border: '2px solid var(--border)',
+                                borderRadius: 8,
+                                fontSize: '0.9rem',
+                                direction: 'ltr',
+                                textAlign: 'right',
+                              }}
+                            />
+                            <button
+                              onClick={() =>
+                                openLink(
+                                  mailtoLink(c.email, subject, text),
+                                )
+                              }
+                              disabled={!c.email.trim() || !hasMsg}
+                              style={{
+                                padding: '8px 14px',
+                                borderRadius: 8,
+                                border: 'none',
+                                background:
+                                  c.email.trim() && hasMsg
+                                    ? 'var(--primary)'
+                                    : '#cbd5e1',
+                                color: 'white',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              ✉️ מייל
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--text-light)',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  💡 פרטי הקשר נשמרים יחד עם הציון בלחיצה על &quot;שמור ציון&quot; —
+                  כך לא תצטרכו להזין אותם שוב. השליחה עצמה פותחת וואטסאפ/מייל עם
+                  ההודעה מוכנה; אתם לוחצים &quot;שלח&quot; בעצמכם.
+                </div>
+              </div>
+            )}
           </section>
 
           {grade.updatedAt && (

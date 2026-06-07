@@ -11,6 +11,12 @@ export interface BudgetItem {
   fromResource: boolean;
 }
 
+export interface TeamContact {
+  name: string;
+  phone: string;
+  email: string;
+}
+
 export interface Project {
   teamMembers: string[];
   ventureName: string;

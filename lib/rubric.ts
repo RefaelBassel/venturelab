@@ -1,6 +1,6 @@
 // מחוון להערכת מיזם חברתי תאורטי
 
-import { Project } from './types';
+import { Project, TeamContact } from './types';
 
 export interface RubricPreviewRow {
   label: string;
@@ -137,6 +137,7 @@ export interface Grade {
   scores: Record<string, number>;
   notes: Record<string, string>;
   general: string;
+  contacts?: TeamContact[];
   updatedAt?: number;
   gradedBy?: string;
 }
