@@ -3,6 +3,7 @@ import { Heebo } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { InstallPrompt } from './InstallPrompt';
+import { Footer } from './Footer';
 
 const heebo = Heebo({ subsets: ['hebrew'], display: 'swap' });
 
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body className={heebo.className}>
         <Providers>
           {children}
+          <Footer />
           <InstallPrompt />
         </Providers>
       </body>
