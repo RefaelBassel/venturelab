@@ -19,6 +19,7 @@ export interface TeamContact {
 
 // תקציר ערב תוצרים — נוצר ע"י Claude, עם בחירות תצוגה של המורה.
 export interface ShowcaseHighlights {
+  pain?: string; // הכאב — למה נולד המיזם
   world?: string; // מה למדו מהעולם / מהריאיון
   approach?: string; // איך מציעים לבצע (תוכנית פעולה)
   budget?: string; // כמה עולה ועל מה

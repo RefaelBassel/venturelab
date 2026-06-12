@@ -17,7 +17,8 @@ const SYSTEM_PROMPT = `אתה עורך תוכן מנוסה שמכין כרטיס
 לכל מיזם, החזר באמצעות הכלי submit_showcase:
 - tagline: שורת מחץ אחת קצרה (עד 12 מילים) שלוכדת את לב המיזם — קולעת, ברורה ומזמינה. בלי נקודה בסוף.
 - summary: 2 משפטים זורמים בגוף שלישי — איזו בעיה חברתית המיזם נוגע בה, ומהו הפתרון המרכזי שהצוות מציע. עברית יפה ומכבדת, בלי קלישאות וסופרלטיבים ריקים.
-- highlights: ארבע נקודות תמציתיות (משפט אחד קצר כל אחת, לכל היותר), כל אחת על שלב אחר במיזם. אם באמת אין מידע לשלב מסוים — החזר מחרוזת ריקה ("") לאותו שדה:
+- highlights: חמש נקודות תמציתיות (משפט אחד קצר כל אחת, לכל היותר), כל אחת על שלב אחר במיזם. אם באמת אין מידע לשלב מסוים — החזר מחרוזת ריקה ("") לאותו שדה:
+  - pain: "הכאב" — מדוע נולד המיזם: המצוקה האישית או החברתית שהציתה את הרעיון, במשפט אחד אנושי ונוגע. מתוך הבעיה והתובנות מהריאיון.
   - world: התובנה המרכזית שהצוות למד מהעולם או מהריאיון (מה גילו שעובד / חסר).
   - approach: איך הצוות מציע להוציא את המיזם לפועל — לב תוכנית הפעולה (הקמה/ביצוע) במשפט.
   - budget: כמה המיזם צפוי לעלות ועל מה עיקר ההוצאה. אם הוזן סכום — ציין אותו (למשל "כ-1,500 ₪, בעיקר ל...").
@@ -34,12 +35,13 @@ const SCHEMA = {
     highlights: {
       type: 'object' as const,
       properties: {
+        pain: { type: 'string' as const },
         world: { type: 'string' as const },
         approach: { type: 'string' as const },
         budget: { type: 'string' as const },
         goals: { type: 'string' as const },
       },
-      required: ['world', 'approach', 'budget', 'goals'],
+      required: ['pain', 'world', 'approach', 'budget', 'goals'],
       additionalProperties: false,
     },
     quotes: {
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
     tagline: string;
     summary: string;
     highlights: {
+      pain: string;
       world: string;
       approach: string;
       budget: string;
@@ -192,6 +195,7 @@ export async function POST(req: NextRequest) {
       ? JSON.parse(existingRes.rows[0].data as string)
       : {};
   const h = generated.highlights || {
+    pain: '',
     world: '',
     approach: '',
     budget: '',
@@ -202,6 +206,7 @@ export async function POST(req: NextRequest) {
     tagline: generated.tagline,
     summary: generated.summary,
     highlights: {
+      pain: h.pain || '',
       world: h.world || '',
       approach: h.approach || '',
       budget: h.budget || '',

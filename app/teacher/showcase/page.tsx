@@ -482,7 +482,8 @@ function ShowcaseCard({
           )}
 
           {s.highlights &&
-            (s.highlights.world ||
+            (s.highlights.pain ||
+              s.highlights.world ||
               s.highlights.approach ||
               s.highlights.budget ||
               s.highlights.goals) && (
@@ -497,6 +498,12 @@ function ShowcaseCard({
                   marginBottom: s.quotes?.length ? 16 : 0,
                 }}
               >
+                <Highlight
+                  icon="💔"
+                  label="הכאב"
+                  hint="למה נולד המיזם"
+                  text={s.highlights.pain}
+                />
                 <Highlight icon="🌍" label="מהעולם" text={s.highlights.world} />
                 <Highlight icon="🔧" label="איך נעשה" text={s.highlights.approach} />
                 <Highlight icon="💰" label="תקציב" text={s.highlights.budget} />
@@ -595,10 +602,12 @@ function ShowcaseCard({
 function Highlight({
   icon,
   label,
+  hint,
   text,
 }: {
   icon: string;
   label: string;
+  hint?: string;
   text?: string;
 }) {
   if (!text || !text.trim()) return null;
@@ -607,8 +616,15 @@ function Highlight({
       <span style={{ fontSize: '1rem', lineHeight: 1.5 }}>{icon}</span>
       <div style={{ fontSize: '0.92rem', lineHeight: 1.55 }}>
         <span style={{ fontWeight: 800, color: 'var(--primary-dark)' }}>
-          {label}:{' '}
+          {label}
         </span>
+        {hint && (
+          <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>
+            {' '}
+            ({hint})
+          </span>
+        )}
+        <span style={{ fontWeight: 800, color: 'var(--primary-dark)' }}>: </span>
         <span style={{ color: 'var(--text)' }}>{text}</span>
       </div>
     </div>
