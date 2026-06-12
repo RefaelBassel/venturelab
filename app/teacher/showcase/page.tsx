@@ -3,11 +3,49 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 import { isTeacher } from '@/lib/teachers';
 import { Project, Showcase } from '@/lib/types';
 import { Grade, RUBRIC_TOTAL, gradeTotal } from '@/lib/rubric';
 
 const TEACHER_CLASS_KEY = 'venturelab_teacher_classid';
+
+// צילום עמיד של כרטיס ל-PNG (data URL): ממתין לפונט+תמונות, צילום-חימום,
+// וניסיון חוזר בלי הטמעת פונט אם הראשון נכשל.
+async function cardToPng(node: HTMLElement): Promise<string> {
+  if (document.fonts?.ready) await document.fonts.ready;
+  const imgs = Array.from(node.querySelectorAll('img'));
+  await Promise.all(
+    imgs.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((res) => {
+            img.onload = () => res();
+            img.onerror = () => res();
+          }),
+    ),
+  );
+  const opts = { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true };
+  await toPng(node, { ...opts, pixelRatio: 1 }).catch(() => {});
+  try {
+    return await toPng(node, opts);
+  } catch {
+    return await toPng(node, { ...opts, skipFonts: true });
+  }
+}
+
+function pngSize(dataUrl: string): Promise<{ w: number; h: number }> {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => res({ w: 800, h: 1100 });
+    img.src = dataUrl;
+  });
+}
+
+function safeName(s: string): string {
+  return (s || 'מיזם').replace(/[\\/:*?"<>|]/g, '').trim() || 'מיזם';
+}
 
 interface Row {
   teamId: string;
@@ -61,6 +99,35 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
+  const [pdf, setPdf] = useState<{ done: number; total: number } | null>(null);
+
+  const downloadAllPdf = useCallback(async () => {
+    const cards = Array.from(
+      document.querySelectorAll<HTMLElement>('.showcase-card[data-content="1"]'),
+    );
+    if (cards.length === 0) return;
+    setPdf({ done: 0, total: cards.length });
+    let doc: jsPDF | null = null;
+    try {
+      for (let i = 0; i < cards.length; i++) {
+        const url = await cardToPng(cards[i]);
+        const { w, h } = await pngSize(url);
+        const orientation = w > h ? 'landscape' : 'portrait';
+        if (!doc) {
+          doc = new jsPDF({ unit: 'px', format: [w, h], orientation });
+        } else {
+          doc.addPage([w, h], orientation);
+        }
+        doc.addImage(url, 'PNG', 0, 0, w, h);
+        setPdf({ done: i + 1, total: cards.length });
+      }
+      doc?.save('ערב-תוצרים.pdf');
+    } catch {
+      setErr('שגיאה ביצירת ה-PDF המאוחד. נסו שוב או הורידו כרטיסים בנפרד.');
+    } finally {
+      setPdf(null);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -202,8 +269,15 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               ? `מייצר תקצירים… ${bulk.done}/${bulk.total}`
               : '✨ צור תקצירים לכולם'}
           </button>
+          <button
+            onClick={downloadAllPdf}
+            disabled={!!pdf || !!bulk || loading}
+            style={primaryBtn}
+          >
+            {pdf ? `מכין PDF… ${pdf.done}/${pdf.total}` : '⬇️ הורד הכל (PDF)'}
+          </button>
           <button onClick={() => window.print()} style={outlineBtn}>
-            🖨 הדפסה / PDF
+            🖨 הדפסה
           </button>
           <button onClick={onBack} style={outlineBtn}>
             חזרה לדשבורד
@@ -350,50 +424,41 @@ function ShowcaseCard({
     }
   };
 
-  const download = async () => {
+  const downloadPng = async () => {
     const node = cardRef.current;
     if (!node) return;
     setDownloading(true);
     setDlErr('');
     try {
-      // ודא שהפונט וכל התמונות (לוגו) נטענו לפני הצילום
-      if (document.fonts?.ready) await document.fonts.ready;
-      const imgs = Array.from(node.querySelectorAll('img'));
-      await Promise.all(
-        imgs.map((img) =>
-          img.complete
-            ? Promise.resolve()
-            : new Promise<void>((res) => {
-                img.onload = () => res();
-                img.onerror = () => res();
-              }),
-        ),
-      );
-
-      const opts = {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-      };
-      // צילום ראשון לעיתים מפספס פונט/תמונה — קוראים פעמיים
-      await toPng(node, { ...opts, pixelRatio: 1 }).catch(() => {});
-      let dataUrl: string;
-      try {
-        dataUrl = await toPng(node, opts);
-      } catch {
-        // נסיון שני בלי הטמעת פונט (הדפדפן כבר טען אותו)
-        dataUrl = await toPng(node, { ...opts, skipFonts: true });
-      }
-
+      const dataUrl = await cardToPng(node);
       const a = document.createElement('a');
-      const safe =
-        (row.data.ventureName || 'מיזם').replace(/[\\/:*?"<>|]/g, '').trim() ||
-        'מיזם';
-      a.download = `${safe}.png`;
+      a.download = `${safeName(row.data.ventureName)}.png`;
       a.href = dataUrl;
       a.click();
     } catch {
       setDlErr('שגיאה בהורדת התמונה. נסו שוב, או השתמשו ב-🖨 הדפסה / PDF.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const downloadPdf = async () => {
+    const node = cardRef.current;
+    if (!node) return;
+    setDownloading(true);
+    setDlErr('');
+    try {
+      const dataUrl = await cardToPng(node);
+      const { w, h } = await pngSize(dataUrl);
+      const doc = new jsPDF({
+        unit: 'px',
+        format: [w, h],
+        orientation: w > h ? 'landscape' : 'portrait',
+      });
+      doc.addImage(dataUrl, 'PNG', 0, 0, w, h);
+      doc.save(`${safeName(row.data.ventureName)}.pdf`);
+    } catch {
+      setDlErr('שגיאה ביצירת PDF. נסו שוב, או השתמשו ב-🖨 הדפסה / PDF.');
     } finally {
       setDownloading(false);
     }
@@ -405,6 +470,7 @@ function ShowcaseCard({
       <div
         ref={cardRef}
         className="showcase-card"
+        data-content={hasContent ? '1' : '0'}
         style={{
           position: 'relative',
           background: 'white',
@@ -627,11 +693,18 @@ function ShowcaseCard({
           {busy ? '⏳ מנסח…' : hasContent ? '↻ רענן תקציר' : '✨ צור תקציר'}
         </button>
         <button
-          onClick={download}
+          onClick={downloadPng}
           disabled={downloading || !hasContent}
           style={miniOutline}
         >
           {downloading ? '⏳ מכין…' : '⬇️ תמונה'}
+        </button>
+        <button
+          onClick={downloadPdf}
+          disabled={downloading || !hasContent}
+          style={miniOutline}
+        >
+          {downloading ? '⏳' : '⬇️ PDF'}
         </button>
         {dlErr && (
           <span style={{ fontSize: '0.78rem', color: '#991b1b' }}>{dlErr}</span>

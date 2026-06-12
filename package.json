@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.100.1",
     "@libsql/client": "^0.17.3",
     "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "next": "14.2.35",
     "next-auth": "^4.24.14",
     "react": "^18",
