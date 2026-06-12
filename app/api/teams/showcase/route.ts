@@ -14,15 +14,15 @@ export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `אתה עורך תוכן מנוסה שמכין כרטיסי תקציר עשירים ומעוררי השראה למיזמים חברתיים של תלמידי תיכון, לקראת "ערב תוצרים" שבו הורים, מורים והקהילה רואים את העבודות. הכרטיס צריך לתת לקורא תמונה שלמה של המיזם — לא רק הבעיה, אלא גם מה למדו, איך יבצעו, כמה זה עולה ולאן הם חותרים.
 
-לכל מיזם, החזר באמצעות הכלי submit_showcase:
+לכל מיזם, החזר באמצעות הכלי submit_showcase. הכרטיס בנוי כמסע: קודם הכותרת (הכאב וההצעה), ואז העמקה ופרטים (מחקר, ביצוע, תקציב, יעדים).
 - tagline: שורת מחץ אחת קצרה (עד 12 מילים) שלוכדת את לב המיזם — קולעת, ברורה ומזמינה. בלי נקודה בסוף.
-- summary: 2 משפטים זורמים בגוף שלישי — איזו בעיה חברתית המיזם נוגע בה, ומהו הפתרון המרכזי שהצוות מציע. עברית יפה ומכבדת, בלי קלישאות וסופרלטיבים ריקים.
-- highlights: חמש נקודות תמציתיות (משפט אחד קצר כל אחת, לכל היותר), כל אחת על שלב אחר במיזם. אם באמת אין מידע לשלב מסוים — החזר מחרוזת ריקה ("") לאותו שדה:
-  - pain: "הכאב" — מדוע נולד המיזם: המצוקה האישית או החברתית שהציתה את הרעיון, במשפט אחד אנושי ונוגע. מתוך הבעיה והתובנות מהריאיון.
-  - world: התובנה המרכזית שהצוות למד מהעולם או מהריאיון (מה גילו שעובד / חסר).
-  - approach: איך הצוות מציע להוציא את המיזם לפועל — לב תוכנית הפעולה (הקמה/ביצוע) במשפט.
-  - budget: כמה המיזם צפוי לעלות ועל מה עיקר ההוצאה. אם הוזן סכום — ציין אותו (למשל "כ-1,500 ₪, בעיקר ל...").
-  - goals: היעד המרכזי או מדד ההצלחה החשוב ביותר שהצוות הציב.
+- highlights: שש נקודות תמציתיות (משפט אחד קצר כל אחת, לכל היותר), כל אחת על שלב אחר. אם באמת אין מידע לשלב מסוים — החזר מחרוזת ריקה ("") לאותו שדה:
+  - pain: "הכאב" — מדוע נולד המיזם: המצוקה האישית או החברתית שהציתה את הרעיון, במשפט אחד אנושי ונוגע. מתוך הבעיה והתובנות.
+  - proposal: "ההצעה" — הפתרון המוצע: מה המיזם מציע לעשות כמענה לכאב, במשפט אחד ברור. זו הצעת הערך של המיזם.
+  - world: "מחקר שטח" — התובנה המרכזית שהצוות למד מהעולם או מהריאיון (מה גילו שעובד / חסר).
+  - approach: "תוכנית הפעולה" — איך הצוות מציע להוציא את המיזם לפועל, לב הביצוע במשפט.
+  - budget: "תקציב" — כמה המיזם צפוי לעלות ועל מה עיקר ההוצאה. אם הוזן סכום — ציין אותו (למשל "כ-1,500 ₪, בעיקר ל...").
+  - goals: "יעדים" — היעד המרכזי או מדד ההצלחה החשוב ביותר שהצוות הציב.
 - quotes: 1-2 ציטוטים קצרים (עד 15 מילים כל אחד) **מילה במילה מתוך הטקסט של התלמידים** (מהבעיה / החזון / התובנות). חובה להעתיק קטע אותנטי כפי שכתבו — אסור להמציא, לתקן או לנסח מחדש. אם אין קטע ראוי, החזר מערך ריק.
 
 כתוב בעברית תקנית. אל תכלול ציון מספרי. המיזם תאורטי — אל תתאר אותו כאילו כבר יצא לפועל.`;
@@ -31,17 +31,17 @@ const SCHEMA = {
   type: 'object' as const,
   properties: {
     tagline: { type: 'string' as const },
-    summary: { type: 'string' as const },
     highlights: {
       type: 'object' as const,
       properties: {
         pain: { type: 'string' as const },
+        proposal: { type: 'string' as const },
         world: { type: 'string' as const },
         approach: { type: 'string' as const },
         budget: { type: 'string' as const },
         goals: { type: 'string' as const },
       },
-      required: ['pain', 'world', 'approach', 'budget', 'goals'],
+      required: ['pain', 'proposal', 'world', 'approach', 'budget', 'goals'],
       additionalProperties: false,
     },
     quotes: {
@@ -50,7 +50,7 @@ const SCHEMA = {
       maxItems: 2,
     },
   },
-  required: ['tagline', 'summary', 'highlights', 'quotes'],
+  required: ['tagline', 'highlights', 'quotes'],
   additionalProperties: false,
 };
 
@@ -134,9 +134,9 @@ export async function POST(req: NextRequest) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   let generated: {
     tagline: string;
-    summary: string;
     highlights: {
       pain: string;
+      proposal: string;
       world: string;
       approach: string;
       budget: string;
@@ -196,6 +196,7 @@ export async function POST(req: NextRequest) {
       : {};
   const h = generated.highlights || {
     pain: '',
+    proposal: '',
     world: '',
     approach: '',
     budget: '',
@@ -204,9 +205,10 @@ export async function POST(req: NextRequest) {
   const merged = {
     ...existing,
     tagline: generated.tagline,
-    summary: generated.summary,
+    summary: '', // הוחלף בנקודות הכאב/ההצעה
     highlights: {
       pain: h.pain || '',
+      proposal: h.proposal || '',
       world: h.world || '',
       approach: h.approach || '',
       budget: h.budget || '',

@@ -461,40 +461,37 @@ function ShowcaseCard({
             </div>
           )}
 
-          {s.summary ? (
-            <p
-              style={{
-                fontSize: '1rem',
-                lineHeight: 1.85,
-                color: 'var(--text)',
-                marginBottom: 14,
-              }}
-            >
-              {s.summary}
-            </p>
-          ) : (
-            <p
-              className="no-print"
-              style={{ color: 'var(--text-light)', fontStyle: 'italic' }}
-            >
-              עדיין לא נוצר תקציר — לחצו &quot;✨ צור תקציר&quot; למטה.
-            </p>
-          )}
+          {(() => {
+            const h = s.highlights || {};
+            const hasHeadline = !!(h.pain?.trim() || h.proposal?.trim());
+            const hasDetails = !!(
+              h.world?.trim() ||
+              h.approach?.trim() ||
+              h.budget?.trim() ||
+              h.goals?.trim()
+            );
+            const hasAny = !!s.tagline?.trim() || hasHeadline || hasDetails;
 
-          {s.highlights &&
-            (s.highlights.pain ||
-              s.highlights.world ||
-              s.highlights.approach ||
-              s.highlights.budget ||
-              s.highlights.goals) && (
+            if (!hasAny) {
+              return (
+                <p
+                  className="no-print"
+                  style={{ color: 'var(--text-light)', fontStyle: 'italic' }}
+                >
+                  עדיין לא נוצר תקציר — לחצו &quot;✨ צור תקציר&quot; למטה.
+                </p>
+              );
+            }
+
+            return (
               <div
                 style={{
                   display: 'grid',
-                  gap: 9,
+                  gap: 10,
                   background: '#f8fafc',
                   border: '1px solid var(--border)',
                   borderRadius: 12,
-                  padding: '12px 14px',
+                  padding: '14px 16px',
                   marginBottom: s.quotes?.length ? 16 : 0,
                 }}
               >
@@ -502,14 +499,38 @@ function ShowcaseCard({
                   icon="💔"
                   label="הכאב"
                   hint="למה נולד המיזם"
-                  text={s.highlights.pain}
+                  text={h.pain}
                 />
-                <Highlight icon="🌍" label="מהעולם" text={s.highlights.world} />
-                <Highlight icon="🔧" label="איך נעשה" text={s.highlights.approach} />
-                <Highlight icon="💰" label="תקציב" text={s.highlights.budget} />
-                <Highlight icon="🎯" label="יעדים" text={s.highlights.goals} />
+                <Highlight
+                  icon="💡"
+                  label="ההצעה"
+                  hint="הפתרון המוצע"
+                  text={h.proposal}
+                />
+                {hasHeadline && hasDetails && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      margin: '2px 0',
+                      color: 'var(--text-light)',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                    }}
+                  >
+                    <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    העמקה ופרטים
+                    <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  </div>
+                )}
+                <Highlight icon="🔍" label="מחקר שטח" text={h.world} />
+                <Highlight icon="🛠️" label="תוכנית הפעולה" text={h.approach} />
+                <Highlight icon="💰" label="תקציב" text={h.budget} />
+                <Highlight icon="🎯" label="יעדים" text={h.goals} />
               </div>
-            )}
+            );
+          })()}
 
           {s.quotes && s.quotes.length > 0 && (
             <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>

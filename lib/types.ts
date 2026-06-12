@@ -20,10 +20,11 @@ export interface TeamContact {
 // תקציר ערב תוצרים — נוצר ע"י Claude, עם בחירות תצוגה של המורה.
 export interface ShowcaseHighlights {
   pain?: string; // הכאב — למה נולד המיזם
-  world?: string; // מה למדו מהעולם / מהריאיון
-  approach?: string; // איך מציעים לבצע (תוכנית פעולה)
-  budget?: string; // כמה עולה ועל מה
-  goals?: string; // יעד מרכזי / מדד הצלחה
+  proposal?: string; // ההצעה — הפתרון המוצע
+  world?: string; // מחקר שטח — מה למדו מהעולם / מהריאיון
+  approach?: string; // תוכנית הפעולה — איך מציעים לבצע
+  budget?: string; // תקציב — כמה עולה ועל מה
+  goals?: string; // יעדים — יעד מרכזי / מדד הצלחה
 }
 
 export interface Showcase {
