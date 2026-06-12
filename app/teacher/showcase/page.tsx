@@ -211,6 +211,22 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
         </div>
       </header>
 
+      {/* Branded logo band (letterhead) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 32,
+          flexWrap: 'wrap',
+          padding: '22px 16px 6px',
+        }}
+      >
+        <LogoImg src="/logos/aguda.png" alt="האגודה לקידום החינוך ירושלים" height={56} />
+        <LogoImg src="/logos/shacharit.png" alt="תיכון שחרית" height={64} />
+        <LogoImg src="/logos/chemed.png" alt="חמ״ד" height={46} />
+      </div>
+
       {/* Print title */}
       <h1
         style={{
@@ -218,7 +234,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           fontWeight: 900,
           color: 'var(--primary-dark)',
           fontSize: '1.8rem',
-          margin: '24px 0 4px',
+          margin: '12px 0 4px',
         }}
       >
         מעבדת המיזמים — ערב תוצרים
@@ -496,10 +512,11 @@ function ShowcaseCard({
               color: 'var(--text-light)',
               display: 'flex',
               justifyContent: 'space-between',
+              alignItems: 'center',
             }}
           >
-            <span>🚀 VentureLab · מעבדת המיזמים</span>
-            <span>מחשבת ישראל</span>
+            <span>🚀 מעבדת המיזמים · מחשבת ישראל</span>
+            <LogoImg src="/logos/shacharit.png" alt="תיכון שחרית" height={24} />
           </div>
         </div>
       </div>
@@ -549,6 +566,28 @@ function ShowcaseCard({
         </label>
       </div>
     </div>
+  );
+}
+
+function LogoImg({
+  src,
+  alt,
+  height,
+}: {
+  src: string;
+  alt: string;
+  height: number;
+}) {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      style={{ height, width: 'auto', objectFit: 'contain' }}
+      onError={() => setOk(false)}
+    />
   );
 }
 
