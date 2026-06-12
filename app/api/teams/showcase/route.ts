@@ -12,12 +12,17 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `אתה עורך תוכן מנוסה שמכין תקצירים קצרים ומעוררי השראה למיזמים חברתיים של תלמידי תיכון, לקראת "ערב תוצרים" שבו הורים, מורים והקהילה רואים את העבודות.
+const SYSTEM_PROMPT = `אתה עורך תוכן מנוסה שמכין כרטיסי תקציר עשירים ומעוררי השראה למיזמים חברתיים של תלמידי תיכון, לקראת "ערב תוצרים" שבו הורים, מורים והקהילה רואים את העבודות. הכרטיס צריך לתת לקורא תמונה שלמה של המיזם — לא רק הבעיה, אלא גם מה למדו, איך יבצעו, כמה זה עולה ולאן הם חותרים.
 
 לכל מיזם, החזר באמצעות הכלי submit_showcase:
 - tagline: שורת מחץ אחת קצרה (עד 12 מילים) שלוכדת את לב המיזם — קולעת, ברורה ומזמינה. בלי נקודה בסוף.
-- summary: פסקה אחת זורמת של 2-3 משפטים, בגוף שלישי: איזו בעיה חברתית המיזם נוגע בה, מה הפתרון שהצוות מציע, ומה השינוי שהוא שואף ליצור. עברית יפה ומכבדת — לא מתיילדת, לא מנופחת, בלי קלישאות וסופרלטיבים ריקים.
-- quotes: 1-2 ציטוטים קצרים (עד 15 מילים כל אחד) **מילה במילה מתוך הטקסט של התלמידים** (מתוך הבעיה / החזון / התובנות מהריאיון). חובה להעתיק קטע אותנטי וחזק כפי שכתבו — אסור להמציא, לתקן או לנסח מחדש. אם אין בטקסט שום קטע ראוי לציטוט, החזר מערך ריק.
+- summary: 2 משפטים זורמים בגוף שלישי — איזו בעיה חברתית המיזם נוגע בה, ומהו הפתרון המרכזי שהצוות מציע. עברית יפה ומכבדת, בלי קלישאות וסופרלטיבים ריקים.
+- highlights: ארבע נקודות תמציתיות (משפט אחד קצר כל אחת, לכל היותר), כל אחת על שלב אחר במיזם. אם באמת אין מידע לשלב מסוים — החזר מחרוזת ריקה ("") לאותו שדה:
+  - world: התובנה המרכזית שהצוות למד מהעולם או מהריאיון (מה גילו שעובד / חסר).
+  - approach: איך הצוות מציע להוציא את המיזם לפועל — לב תוכנית הפעולה (הקמה/ביצוע) במשפט.
+  - budget: כמה המיזם צפוי לעלות ועל מה עיקר ההוצאה. אם הוזן סכום — ציין אותו (למשל "כ-1,500 ₪, בעיקר ל...").
+  - goals: היעד המרכזי או מדד ההצלחה החשוב ביותר שהצוות הציב.
+- quotes: 1-2 ציטוטים קצרים (עד 15 מילים כל אחד) **מילה במילה מתוך הטקסט של התלמידים** (מהבעיה / החזון / התובנות). חובה להעתיק קטע אותנטי כפי שכתבו — אסור להמציא, לתקן או לנסח מחדש. אם אין קטע ראוי, החזר מערך ריק.
 
 כתוב בעברית תקנית. אל תכלול ציון מספרי. המיזם תאורטי — אל תתאר אותו כאילו כבר יצא לפועל.`;
 
@@ -26,13 +31,24 @@ const SCHEMA = {
   properties: {
     tagline: { type: 'string' as const },
     summary: { type: 'string' as const },
+    highlights: {
+      type: 'object' as const,
+      properties: {
+        world: { type: 'string' as const },
+        approach: { type: 'string' as const },
+        budget: { type: 'string' as const },
+        goals: { type: 'string' as const },
+      },
+      required: ['world', 'approach', 'budget', 'goals'],
+      additionalProperties: false,
+    },
     quotes: {
       type: 'array' as const,
       items: { type: 'string' as const },
       maxItems: 2,
     },
   },
-  required: ['tagline', 'summary', 'quotes'],
+  required: ['tagline', 'summary', 'highlights', 'quotes'],
   additionalProperties: false,
 };
 
@@ -114,7 +130,17 @@ export async function POST(req: NextRequest) {
   };
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  let generated: { tagline: string; summary: string; quotes: string[] };
+  let generated: {
+    tagline: string;
+    summary: string;
+    highlights: {
+      world: string;
+      approach: string;
+      budget: string;
+      goals: string;
+    };
+    quotes: string[];
+  };
   try {
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-8',
@@ -165,10 +191,22 @@ export async function POST(req: NextRequest) {
     existingRes.rows.length > 0
       ? JSON.parse(existingRes.rows[0].data as string)
       : {};
+  const h = generated.highlights || {
+    world: '',
+    approach: '',
+    budget: '',
+    goals: '',
+  };
   const merged = {
     ...existing,
     tagline: generated.tagline,
     summary: generated.summary,
+    highlights: {
+      world: h.world || '',
+      approach: h.approach || '',
+      budget: h.budget || '',
+      goals: h.goals || '',
+    },
     quotes: Array.isArray(generated.quotes) ? generated.quotes.slice(0, 2) : [],
   };
 

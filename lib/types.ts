@@ -18,9 +18,17 @@ export interface TeamContact {
 }
 
 // תקציר ערב תוצרים — נוצר ע"י Claude, עם בחירות תצוגה של המורה.
+export interface ShowcaseHighlights {
+  world?: string; // מה למדו מהעולם / מהריאיון
+  approach?: string; // איך מציעים לבצע (תוכנית פעולה)
+  budget?: string; // כמה עולה ועל מה
+  goals?: string; // יעד מרכזי / מדד הצלחה
+}
+
 export interface Showcase {
   tagline?: string;
   summary?: string;
+  highlights?: ShowcaseHighlights;
   quotes?: string[];
   showScore?: boolean;
   excellence?: boolean;

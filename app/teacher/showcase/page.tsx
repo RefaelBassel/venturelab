@@ -467,7 +467,7 @@ function ShowcaseCard({
                 fontSize: '1rem',
                 lineHeight: 1.85,
                 color: 'var(--text)',
-                marginBottom: s.quotes?.length ? 16 : 0,
+                marginBottom: 14,
               }}
             >
               {s.summary}
@@ -480,6 +480,29 @@ function ShowcaseCard({
               עדיין לא נוצר תקציר — לחצו &quot;✨ צור תקציר&quot; למטה.
             </p>
           )}
+
+          {s.highlights &&
+            (s.highlights.world ||
+              s.highlights.approach ||
+              s.highlights.budget ||
+              s.highlights.goals) && (
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 9,
+                  background: '#f8fafc',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: '12px 14px',
+                  marginBottom: s.quotes?.length ? 16 : 0,
+                }}
+              >
+                <Highlight icon="🌍" label="מהעולם" text={s.highlights.world} />
+                <Highlight icon="🔧" label="איך נעשה" text={s.highlights.approach} />
+                <Highlight icon="💰" label="תקציב" text={s.highlights.budget} />
+                <Highlight icon="🎯" label="יעדים" text={s.highlights.goals} />
+              </div>
+            )}
 
           {s.quotes && s.quotes.length > 0 && (
             <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
@@ -564,6 +587,29 @@ function ShowcaseCard({
           />
           ⭐ הצטיינות
         </label>
+      </div>
+    </div>
+  );
+}
+
+function Highlight({
+  icon,
+  label,
+  text,
+}: {
+  icon: string;
+  label: string;
+  text?: string;
+}) {
+  if (!text || !text.trim()) return null;
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <span style={{ fontSize: '1rem', lineHeight: 1.5 }}>{icon}</span>
+      <div style={{ fontSize: '0.92rem', lineHeight: 1.55 }}>
+        <span style={{ fontWeight: 800, color: 'var(--primary-dark)' }}>
+          {label}:{' '}
+        </span>
+        <span style={{ color: 'var(--text)' }}>{text}</span>
       </div>
     </div>
   );
