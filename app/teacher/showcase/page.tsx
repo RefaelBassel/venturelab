@@ -483,50 +483,49 @@ function ShowcaseCard({
         {/* Gradient top bar */}
         <div style={{ height: 10, background: 'var(--gradient)' }} />
 
-        {/* Badges (top-left corner physically) */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 22,
-            left: 18,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            alignItems: 'flex-start',
-          }}
-        >
-          {excellence && (
-            <span
+        <div style={{ padding: '18px 26px 24px' }}>
+          {/* Badges — in normal flow above the title (no overlap) */}
+          {(excellence || (showScore && hasGrade)) && (
+            <div
               style={{
-                background: 'linear-gradient(135deg,#f59e0b,#eab308)',
-                color: 'white',
-                fontWeight: 800,
-                fontSize: '0.8rem',
-                padding: '5px 12px',
-                borderRadius: 999,
-                boxShadow: '0 2px 8px rgba(234,179,8,0.4)',
+                display: 'flex',
+                gap: 8,
+                flexWrap: 'wrap',
+                marginBottom: 12,
               }}
             >
-              ⭐ הצטיינות
-            </span>
+              {excellence && (
+                <span
+                  style={{
+                    background: 'linear-gradient(135deg,#f59e0b,#eab308)',
+                    color: 'white',
+                    fontWeight: 800,
+                    fontSize: '0.8rem',
+                    padding: '5px 12px',
+                    borderRadius: 999,
+                    boxShadow: '0 2px 8px rgba(234,179,8,0.4)',
+                  }}
+                >
+                  ⭐ מיזם מצטיין
+                </span>
+              )}
+              {showScore && hasGrade && (
+                <span
+                  style={{
+                    background: '#ede9fe',
+                    color: '#5b21b6',
+                    fontWeight: 900,
+                    fontSize: '0.85rem',
+                    padding: '5px 12px',
+                    borderRadius: 999,
+                  }}
+                >
+                  {score}/{RUBRIC_TOTAL}
+                </span>
+              )}
+            </div>
           )}
-          {showScore && hasGrade && (
-            <span
-              style={{
-                background: '#ede9fe',
-                color: '#5b21b6',
-                fontWeight: 900,
-                fontSize: '0.85rem',
-                padding: '5px 12px',
-                borderRadius: 999,
-              }}
-            >
-              {score}/{RUBRIC_TOTAL}
-            </span>
-          )}
-        </div>
 
-        <div style={{ padding: '20px 26px 24px' }}>
           <h2
             style={{
               fontSize: '1.55rem',
@@ -534,7 +533,6 @@ function ShowcaseCard({
               color: 'var(--primary-dark)',
               lineHeight: 1.25,
               marginBottom: 4,
-              paddingInlineStart: excellence || (showScore && hasGrade) ? 90 : 0,
             }}
           >
             {row.data.ventureName}
@@ -723,7 +721,7 @@ function ShowcaseCard({
               onTogglePref(row.teamId, showScore, e.target.checked)
             }
           />
-          ⭐ הצטיינות
+          ⭐ מיזם מצטיין
         </label>
       </div>
     </div>
