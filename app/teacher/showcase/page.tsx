@@ -606,12 +606,7 @@ function ShowcaseCard({
                   hint="למה נולד המיזם"
                   text={h.pain}
                 />
-                <Highlight
-                  icon="💡"
-                  label="ההצעה"
-                  hint="הפתרון המוצע"
-                  text={h.proposal}
-                />
+                <Highlight icon="💡" label="הפתרון המוצע" text={h.proposal} />
                 {hasHeadline && hasDetails && (
                   <div
                     style={{
