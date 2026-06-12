@@ -319,6 +319,7 @@ function ShowcaseCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [dlErr, setDlErr] = useState('');
 
   const s = row.summary || {};
   const showScore = !!s.showScore;
@@ -326,6 +327,17 @@ function ShowcaseCard({
   const hasGrade = row.grade && gradeTotal(row.grade) > 0;
   const score = row.grade ? gradeTotal(row.grade) : 0;
   const members = row.data.teamMembers.filter((m) => m.trim()).join(' · ');
+
+  const h = s.highlights || {};
+  const hasContent = !!(
+    s.tagline?.trim() ||
+    h.pain?.trim() ||
+    h.proposal?.trim() ||
+    h.world?.trim() ||
+    h.approach?.trim() ||
+    h.budget?.trim() ||
+    h.goals?.trim()
+  );
 
   const generate = async () => {
     setBusy(true);
@@ -339,22 +351,49 @@ function ShowcaseCard({
   };
 
   const download = async () => {
-    if (!cardRef.current) return;
+    const node = cardRef.current;
+    if (!node) return;
     setDownloading(true);
+    setDlErr('');
     try {
+      // ודא שהפונט וכל התמונות (לוגו) נטענו לפני הצילום
       if (document.fonts?.ready) await document.fonts.ready;
-      const dataUrl = await toPng(cardRef.current, {
+      const imgs = Array.from(node.querySelectorAll('img'));
+      await Promise.all(
+        imgs.map((img) =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise<void>((res) => {
+                img.onload = () => res();
+                img.onerror = () => res();
+              }),
+        ),
+      );
+
+      const opts = {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
-      });
+      };
+      // צילום ראשון לעיתים מפספס פונט/תמונה — קוראים פעמיים
+      await toPng(node, { ...opts, pixelRatio: 1 }).catch(() => {});
+      let dataUrl: string;
+      try {
+        dataUrl = await toPng(node, opts);
+      } catch {
+        // נסיון שני בלי הטמעת פונט (הדפדפן כבר טען אותו)
+        dataUrl = await toPng(node, { ...opts, skipFonts: true });
+      }
+
       const a = document.createElement('a');
-      const safe = (row.data.ventureName || 'מיזם').replace(/[\\/:*?"<>|]/g, '');
+      const safe =
+        (row.data.ventureName || 'מיזם').replace(/[\\/:*?"<>|]/g, '').trim() ||
+        'מיזם';
       a.download = `${safe}.png`;
       a.href = dataUrl;
       a.click();
     } catch {
-      /* ניתן לנסות שוב */
+      setDlErr('שגיאה בהורדת התמונה. נסו שוב, או השתמשו ב-🖨 הדפסה / PDF.');
     } finally {
       setDownloading(false);
     }
@@ -585,15 +624,18 @@ function ShowcaseCard({
         }}
       >
         <button onClick={generate} disabled={busy} style={miniPrimary}>
-          {busy ? '⏳ מנסח…' : s.summary ? '↻ רענן תקציר' : '✨ צור תקציר'}
+          {busy ? '⏳ מנסח…' : hasContent ? '↻ רענן תקציר' : '✨ צור תקציר'}
         </button>
         <button
           onClick={download}
-          disabled={downloading || !s.summary}
+          disabled={downloading || !hasContent}
           style={miniOutline}
         >
-          {downloading ? '⏳' : '⬇️ תמונה'}
+          {downloading ? '⏳ מכין…' : '⬇️ תמונה'}
         </button>
+        {dlErr && (
+          <span style={{ fontSize: '0.78rem', color: '#991b1b' }}>{dlErr}</span>
+        )}
         <label style={miniLabel}>
           <input
             type="checkbox"
