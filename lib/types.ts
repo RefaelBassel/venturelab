@@ -17,6 +17,16 @@ export interface TeamContact {
   email: string;
 }
 
+// תקציר ערב תוצרים — נוצר ע"י Claude, עם בחירות תצוגה של המורה.
+export interface Showcase {
+  tagline?: string;
+  summary?: string;
+  quotes?: string[];
+  showScore?: boolean;
+  excellence?: boolean;
+  updatedAt?: number;
+}
+
 export interface Project {
   teamMembers: string[];
   ventureName: string;

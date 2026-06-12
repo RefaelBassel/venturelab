@@ -37,4 +37,23 @@ export async function initDb() {
   await db.execute(`
     CREATE INDEX IF NOT EXISTS idx_grades_class ON grades(class_id)
   `);
+  await ensureSummaries();
+}
+
+// תקצירי ערב תוצרים — טבלה נפרדת. ניתן לקרוא בנפרד מ-initDb כדי
+// להבטיח שהטבלה קיימת בנתיבי ה-showcase גם אם /api/init לא נקרא לאחרונה.
+export async function ensureSummaries() {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS summaries (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL,
+      team_id TEXT NOT NULL,
+      data TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      UNIQUE(class_id, team_id)
+    )
+  `);
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_summaries_class ON summaries(class_id)
+  `);
 }

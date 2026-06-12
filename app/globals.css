@@ -67,6 +67,17 @@ button {
   body {
     background: white;
   }
+  .showcase-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+  .showcase-grid {
+    display: block !important;
+  }
+  .showcase-grid > * {
+    margin-bottom: 18px;
+  }
 }
 
 @keyframes saving-pulse {

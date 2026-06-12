@@ -252,6 +252,7 @@ function UnauthorizedView({
 }
 
 function Dashboard({ email, name }: { email: string; name: string }) {
+  const router = useRouter();
   const [classId, setClassId] = useState('');
   const [classInput, setClassInput] = useState('');
   const [teams, setTeams] = useState<TeamRow[]>([]);
@@ -558,9 +559,25 @@ function Dashboard({ email, name }: { email: string; name: string }) {
               style={{
                 display: 'flex',
                 justifyContent: 'flex-end',
+                gap: 8,
+                flexWrap: 'wrap',
                 marginBottom: 20,
               }}
             >
+              <button
+                onClick={() => router.push('/teacher/showcase')}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: 10,
+                  border: '1px solid #c4b5fd',
+                  background: '#f5f3ff',
+                  color: '#5b21b6',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                }}
+              >
+                🎪 ערב תוצרים
+              </button>
               <button
                 onClick={exportCsv}
                 style={{
