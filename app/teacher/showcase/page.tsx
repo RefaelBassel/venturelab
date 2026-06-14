@@ -47,6 +47,15 @@ function safeName(s: string): string {
   return (s || 'מיזם').replace(/[\\/:*?"<>|]/g, '').trim() || 'מיזם';
 }
 
+function imageExists(src: string): Promise<boolean> {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img.naturalWidth > 0);
+    img.onerror = () => res(false);
+    img.src = src + (src.includes('?') ? '' : `?v=${Date.now()}`);
+  });
+}
+
 function summaryHasContent(s: Showcase | null | undefined): boolean {
   if (!s) return false;
   const h = s.highlights || {};
@@ -104,7 +113,25 @@ function Sun({ size, color = ORANGE }: { size: number; color?: string }) {
   );
 }
 
-function BookletCover({ classLabel }: { classLabel: string }) {
+function BookletCover({
+  classLabel,
+  imageSrc,
+}: {
+  classLabel: string;
+  imageSrc?: string;
+}) {
+  if (imageSrc) {
+    return (
+      <div className="booklet-page" style={bookletPageStyle()}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageSrc}
+          alt="כריכה"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
+    );
+  }
   return (
     <div
       className="booklet-page"
@@ -395,7 +422,19 @@ function BookletProjectPage({
   );
 }
 
-function BookletBack() {
+function BookletBack({ imageSrc }: { imageSrc?: string }) {
+  if (imageSrc) {
+    return (
+      <div className="booklet-page" style={bookletPageStyle()}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageSrc}
+          alt="כריכה אחורית"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
+    );
+  }
   return (
     <div
       className="booklet-page"
@@ -481,6 +520,9 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bookletRows, setBookletRows] = useState<Row[] | null>(null);
   const [bookletStage, setBookletStage] = useState<string>('');
+  const [coverImgs, setCoverImgs] = useState<{ front?: string; back?: string }>(
+    {},
+  );
   const bookletRef = useRef<HTMLDivElement>(null);
 
   const downloadAllPdf = useCallback(async () => {
@@ -640,7 +682,16 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
       setErr('לא נוצרו תקצירים למיזמים שנבחרו.');
       return;
     }
+    // בדוק אם הועלתה תמונת כריכה (מותאמת אישית)
     setBookletStage('בונה חוברת…');
+    const [hasFront, hasBack] = await Promise.all([
+      imageExists('/logos/cover.png'),
+      imageExists('/logos/cover-back.png'),
+    ]);
+    setCoverImgs({
+      front: hasFront ? '/logos/cover.png' : undefined,
+      back: hasBack ? '/logos/cover-back.png' : undefined,
+    });
     setBookletRows(finalRows); // מפעיל רינדור מוסתר + אפקט הצילום
   }, [rows, selected, generateOne]);
 
@@ -894,7 +945,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           aria-hidden
           style={{ position: 'fixed', left: -100000, top: 0, pointerEvents: 'none' }}
         >
-          <BookletCover classLabel={classId} />
+          <BookletCover classLabel={classId} imageSrc={coverImgs.front} />
           <BookletIntro classLabel={classId} />
           <BookletToc
             entries={bookletRows.map((r, i) => ({
@@ -911,7 +962,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               classLabel={classId}
             />
           ))}
-          <BookletBack />
+          <BookletBack imageSrc={coverImgs.back} />
         </div>
       )}
     </div>
