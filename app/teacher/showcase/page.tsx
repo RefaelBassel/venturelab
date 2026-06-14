@@ -5,6 +5,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { isTeacher } from '@/lib/teachers';
+import { normalizeClassId } from '@/lib/classId';
 import { Project, Showcase } from '@/lib/types';
 import { Grade, RUBRIC_TOTAL, gradeTotal } from '@/lib/rubric';
 
@@ -73,6 +74,7 @@ function summaryHasContent(s: Showcase | null | undefined): boolean {
 interface Row {
   teamId: string;
   deviceCode: string;
+  classId: string; // הכיתה שאליה שייך המיזם (לתמיכה בכמה כיתות בחוברת אחת)
   data: Project;
   grade: Grade | null;
   summary: Showcase | null;
@@ -260,8 +262,9 @@ function BookletIntro({ classLabel }: { classLabel: string }) {
 function BookletToc({
   entries,
 }: {
-  entries: { name: string; members: string; page: number }[];
+  entries: { name: string; members: string; cls: string; page: number }[];
 }) {
+  const multiClass = new Set(entries.map((e) => e.cls)).size > 1;
   return (
     <div
       className="booklet-page"
@@ -286,6 +289,11 @@ function BookletToc({
               {e.page}.
             </span>
             <span style={{ fontWeight: 700, color: '#1e293b' }}>{e.name}</span>
+            {multiClass && (
+              <span style={{ color: ORANGE, fontSize: 15, fontWeight: 700 }}>
+                [{e.cls}]
+              </span>
+            )}
             {e.members && (
               <span style={{ color: 'var(--text-light)', fontSize: 16 }}>
                 · {e.members}
@@ -514,7 +522,8 @@ export default function ShowcasePage() {
 }
 
 function ShowcaseView({ onBack }: { onBack: () => void }) {
-  const [classId, setClassId] = useState('');
+  const [classInput, setClassInput] = useState('');
+  const [loadedClasses, setLoadedClasses] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -556,14 +565,9 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(TEACHER_CLASS_KEY) || '';
-      if (saved) setClassId(saved);
-    } catch {}
-  }, []);
-
-  const load = useCallback(async (cid: string) => {
+  // טעינת כיתה — append=false מחליף, append=true מוסיף למה שכבר טעון
+  const load = useCallback(async (raw: string, append = false) => {
+    const cid = normalizeClassId(raw);
     if (!cid) return;
     setLoading(true);
     setErr('');
@@ -573,7 +577,16 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      setRows(json.teams || []);
+      const tagged: Row[] = (json.teams || []).map((t: Row) => ({
+        ...t,
+        classId: cid,
+      }));
+      setRows((prev) =>
+        append ? [...prev.filter((r) => r.classId !== cid), ...tagged] : tagged,
+      );
+      setLoadedClasses((prev) =>
+        append ? Array.from(new Set([...prev, cid])) : [cid],
+      );
     } catch {
       setErr('שגיאה בטעינת המיזמים.');
     } finally {
@@ -581,12 +594,25 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
+  // טעינה ראשונית של הכיתה השמורה
   useEffect(() => {
-    if (classId) load(classId);
-  }, [classId, load]);
+    let saved = '';
+    try {
+      saved = localStorage.getItem(TEACHER_CLASS_KEY) || '';
+    } catch {}
+    if (saved) {
+      setClassInput(saved);
+      load(saved, false);
+    }
+  }, [load]);
+
+  const removeClass = useCallback((cid: string) => {
+    setRows((prev) => prev.filter((r) => r.classId !== cid));
+    setLoadedClasses((prev) => prev.filter((c) => c !== cid));
+  }, []);
 
   const generateOne = useCallback(
-    async (teamId: string): Promise<Showcase> => {
+    async (classId: string, teamId: string): Promise<Showcase> => {
       const res = await fetch('/api/teams/showcase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -603,11 +629,16 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
       );
       return json.summary as Showcase;
     },
-    [classId],
+    [],
   );
 
   const savePrefs = useCallback(
-    async (teamId: string, showScore: boolean, excellence: boolean) => {
+    async (
+      classId: string,
+      teamId: string,
+      showScore: boolean,
+      excellence: boolean,
+    ) => {
       setRows((prev) =>
         prev.map((r) =>
           r.teamId === teamId
@@ -623,7 +654,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
         });
       } catch {}
     },
-    [classId],
+    [],
   );
 
   const generateAll = useCallback(async () => {
@@ -632,7 +663,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
     setBulk({ done: 0, total: missing.length });
     for (let i = 0; i < missing.length; i++) {
       try {
-        await generateOne(missing[i].teamId);
+        await generateOne(missing[i].classId, missing[i].teamId);
       } catch {
         // ממשיכים גם אם צוות אחד נכשל
       }
@@ -668,7 +699,10 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
     for (let i = 0; i < missing.length; i++) {
       setBookletStage(`מכין תקצירים… ${i + 1}/${missing.length}`);
       try {
-        fresh.set(missing[i].teamId, await generateOne(missing[i].teamId));
+        fresh.set(
+          missing[i].teamId,
+          await generateOne(missing[i].classId, missing[i].teamId),
+        );
       } catch {
         /* skip a failed one */
       }
@@ -770,7 +804,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               ערב תוצרים
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
-              כיתה: {classId || '—'}
+              כיתות: {loadedClasses.length ? loadedClasses.join(' · ') : '—'}
             </div>
           </div>
         </div>
@@ -778,8 +812,14 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}
         >
           <input
-            value={classId}
-            onChange={(e) => setClassId(e.target.value)}
+            value={classInput}
+            onChange={(e) => setClassInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && classInput.trim()) {
+                load(classInput, loadedClasses.length > 0);
+                setClassInput('');
+              }
+            }}
             placeholder="קוד כיתה"
             style={{
               padding: '8px 12px',
@@ -789,6 +829,17 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               width: 130,
             }}
           />
+          <button
+            onClick={() => {
+              if (!classInput.trim()) return;
+              load(classInput, loadedClasses.length > 0);
+              setClassInput('');
+            }}
+            disabled={loading}
+            style={outlineBtn}
+          >
+            {loadedClasses.length ? '➕ הוסף כיתה' : 'טען'}
+          </button>
           <button
             onClick={generateAll}
             disabled={!!bulk || loading}
@@ -820,6 +871,60 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </header>
+
+      {/* Loaded classes chips */}
+      {loadedClasses.length > 0 && (
+        <div
+          className="no-print"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '12px 16px 0',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+            כיתות בחוברת:
+          </span>
+          {loadedClasses.map((c) => (
+            <span
+              key={c}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: '#eef2ff',
+                color: 'var(--primary-dark)',
+                borderRadius: 999,
+                padding: '4px 6px 4px 12px',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+              }}
+            >
+              {c}
+              <button
+                onClick={() => removeClass(c)}
+                aria-label="הסר כיתה"
+                title="הסר כיתה"
+                style={{
+                  border: 'none',
+                  background: '#c7d2fe',
+                  color: 'var(--primary-dark)',
+                  borderRadius: '50%',
+                  width: 18,
+                  height: 18,
+                  lineHeight: 1,
+                  fontSize: '0.85rem',
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Selection helpers for the booklet */}
       {withName.length > 0 && (
@@ -948,12 +1053,22 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           aria-hidden
           style={{ position: 'fixed', left: -100000, top: 0, pointerEvents: 'none' }}
         >
-          <BookletCover classLabel={classId} imageSrc={coverImgs.front} />
-          <BookletIntro classLabel={classId} />
+          <BookletCover
+            classLabel={Array.from(
+              new Set(bookletRows.map((r) => r.classId)),
+            ).join(' · ')}
+            imageSrc={coverImgs.front}
+          />
+          <BookletIntro
+            classLabel={Array.from(
+              new Set(bookletRows.map((r) => r.classId)),
+            ).join(' · ')}
+          />
           <BookletToc
             entries={bookletRows.map((r, i) => ({
               name: r.data.ventureName || 'ללא שם',
               members: r.data.teamMembers.filter((m) => m.trim()).join(' · '),
+              cls: r.classId,
               page: i + 1,
             }))}
           />
@@ -962,7 +1077,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               key={r.teamId}
               row={r}
               number={i + 1}
-              classLabel={classId}
+              classLabel={r.classId}
             />
           ))}
           <BookletBack imageSrc={coverImgs.back} />
@@ -982,8 +1097,9 @@ function ShowcaseCard({
   row: Row;
   selected: boolean;
   onToggleSelect: () => void;
-  onGenerate: (teamId: string) => Promise<Showcase>;
+  onGenerate: (classId: string, teamId: string) => Promise<Showcase>;
   onTogglePref: (
+    classId: string,
     teamId: string,
     showScore: boolean,
     excellence: boolean,
@@ -1015,7 +1131,7 @@ function ShowcaseCard({
   const generate = async () => {
     setBusy(true);
     try {
-      await onGenerate(row.teamId);
+      await onGenerate(row.classId, row.teamId);
     } catch {
       /* שגיאה תיבלע — אפשר לנסות שוב */
     } finally {
@@ -1136,15 +1252,32 @@ function ShowcaseCard({
           >
             {row.data.ventureName}
           </h2>
-          {members && (
+          {(members || row.classId) && (
             <div
               style={{
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
                 marginBottom: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
               }}
             >
-              {members}
+              {members && <span>{members}</span>}
+              <span
+                className="no-print"
+                style={{
+                  background: '#eef2ff',
+                  color: 'var(--primary-dark)',
+                  borderRadius: 999,
+                  padding: '1px 8px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                }}
+              >
+                {row.classId}
+              </span>
             </div>
           )}
 
@@ -1241,7 +1374,7 @@ function ShowcaseCard({
             type="checkbox"
             checked={showScore}
             onChange={(e) =>
-              onTogglePref(row.teamId, e.target.checked, excellence)
+              onTogglePref(row.classId, row.teamId, e.target.checked, excellence)
             }
             disabled={!hasGrade}
           />
@@ -1252,7 +1385,7 @@ function ShowcaseCard({
             type="checkbox"
             checked={excellence}
             onChange={(e) =>
-              onTogglePref(row.teamId, showScore, e.target.checked)
+              onTogglePref(row.classId, row.teamId, showScore, e.target.checked)
             }
           />
           ⭐ מיזם מצטיין
