@@ -80,9 +80,12 @@ interface Row {
 
 // ====== חוברת תקצירי מיזמים (booklet) ======
 const TEAL = '#0e4f54';
-const TEAL_DARK = '#0a383c';
 const ORANGE = '#f5a623';
 const CREAM = '#fdf7ec';
+// צבעי כריכה בסגנון ספר הלימוד
+const COVER_ORANGE = '#d7973c';
+const COVER_TITLE = '#5a3a15';
+const COVER_SUB = '#6e4a1d';
 const PAGE_W = 794; // A4 ב-96dpi
 const PAGE_H = 1123;
 
@@ -132,78 +135,78 @@ function BookletCover({
       </div>
     );
   }
+  // עיצוב בסגנון כריכת ספר הלימוד: רקע כתום-זהוב + פס לבן עם הלוגואים למעלה
   return (
     <div
       className="booklet-page"
       style={bookletPageStyle({
-        background: `linear-gradient(165deg, ${TEAL} 0%, ${TEAL_DARK} 100%)`,
+        background: COVER_ORANGE,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
       })}
     >
-      <div style={{ marginTop: 120, marginBottom: 10 }}>
-        <Sun size={260} />
+      {/* פס לבן עם הלוגואים — רק בכריכה */}
+      <div
+        style={{
+          marginTop: 34,
+          background: CREAM,
+          borderRadius: 10,
+          padding: '14px 34px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 34,
+        }}
+      >
+        <LogoImg src="/logos/aguda.png" alt="האגודה" height={42} />
+        <LogoImg src="/logos/shacharit.png" alt="שחרית" height={50} />
+        <LogoImg src="/logos/chemed.png" alt="חמד" height={36} />
       </div>
-      <div style={{ flex: 1, textAlign: 'center', padding: '0 60px' }}>
+
+      {/* כותרת */}
+      <div style={{ marginTop: 130, textAlign: 'center', padding: '0 56px' }}>
         <div
           style={{
-            color: ORANGE,
-            fontWeight: 800,
-            fontSize: 24,
-            letterSpacing: 2,
-            marginBottom: 18,
-          }}
-        >
-          מעבדת המיזמים
-        </div>
-        <div
-          style={{
-            color: CREAM,
+            color: COVER_TITLE,
             fontWeight: 900,
-            fontSize: 64,
-            lineHeight: 1.1,
-            marginBottom: 14,
+            fontSize: 70,
+            lineHeight: 1.15,
+            textShadow: '0 2px 0 rgba(255,255,255,0.25)',
           }}
         >
           אחריות קהילתית
         </div>
-        <div style={{ color: CREAM, fontSize: 30, fontWeight: 700, opacity: 0.95 }}>
+        <div
+          style={{
+            color: COVER_TITLE,
+            fontWeight: 900,
+            fontSize: 44,
+            marginTop: 8,
+            textShadow: '0 2px 0 rgba(255,255,255,0.25)',
+          }}
+        >
           חוברת תקצירי מיזמים
         </div>
         <div
           style={{
-            width: 120,
-            height: 4,
-            background: ORANGE,
-            borderRadius: 2,
-            margin: '28px auto',
+            color: COVER_SUB,
+            fontSize: 25,
+            fontWeight: 600,
+            marginTop: 26,
           }}
-        />
-        <div style={{ color: CREAM, fontSize: 22, opacity: 0.92, lineHeight: 1.8 }}>
+        >
           מחשבת ישראל · תיכון שחרית
         </div>
         {classLabel && (
-          <div style={{ color: CREAM, fontSize: 20, opacity: 0.8, marginTop: 6 }}>
+          <div style={{ color: COVER_SUB, fontSize: 21, marginTop: 8, opacity: 0.9 }}>
             {classLabel}
           </div>
         )}
       </div>
-      {/* פס לבן עם הלוגואים — רק בכריכה */}
-      <div
-        style={{
-          width: '100%',
-          background: 'white',
-          padding: '20px 0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 40,
-        }}
-      >
-        <LogoImg src="/logos/aguda.png" alt="האגודה" height={50} />
-        <LogoImg src="/logos/shacharit.png" alt="שחרית" height={58} />
-        <LogoImg src="/logos/chemed.png" alt="חמד" height={42} />
+
+      <div style={{ marginTop: 'auto', marginBottom: 70 }}>
+        <Sun size={150} />
       </div>
     </div>
   );
@@ -439,34 +442,34 @@ function BookletBack({ imageSrc }: { imageSrc?: string }) {
     <div
       className="booklet-page"
       style={bookletPageStyle({
-        background: `linear-gradient(165deg, ${TEAL} 0%, ${TEAL_DARK} 100%)`,
+        background: COVER_ORANGE,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
       })}
     >
-      <Sun size={180} />
-      <div style={{ color: CREAM, fontSize: 30, fontWeight: 800, marginTop: 30 }}>
+      <Sun size={170} />
+      <div style={{ color: COVER_TITLE, fontSize: 34, fontWeight: 900, marginTop: 28 }}>
         מעבדת המיזמים
       </div>
-      <div style={{ color: CREAM, fontSize: 20, opacity: 0.9, marginTop: 8 }}>
+      <div style={{ color: COVER_SUB, fontSize: 21, marginTop: 8 }}>
         מחשבת ישראל · תיכון שחרית
       </div>
       <div
         style={{
-          marginTop: 50,
-          background: 'white',
-          borderRadius: 14,
-          padding: '16px 28px',
+          marginTop: 46,
+          background: CREAM,
+          borderRadius: 12,
+          padding: '14px 28px',
           display: 'flex',
-          gap: 32,
+          gap: 30,
           alignItems: 'center',
         }}
       >
-        <LogoImg src="/logos/aguda.png" alt="האגודה" height={40} />
-        <LogoImg src="/logos/shacharit.png" alt="שחרית" height={46} />
-        <LogoImg src="/logos/chemed.png" alt="חמד" height={34} />
+        <LogoImg src="/logos/aguda.png" alt="האגודה" height={36} />
+        <LogoImg src="/logos/shacharit.png" alt="שחרית" height={42} />
+        <LogoImg src="/logos/chemed.png" alt="חמד" height={30} />
       </div>
     </div>
   );
