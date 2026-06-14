@@ -47,12 +47,390 @@ function safeName(s: string): string {
   return (s || 'מיזם').replace(/[\\/:*?"<>|]/g, '').trim() || 'מיזם';
 }
 
+function summaryHasContent(s: Showcase | null | undefined): boolean {
+  if (!s) return false;
+  const h = s.highlights || {};
+  return !!(
+    s.tagline?.trim() ||
+    h.pain?.trim() ||
+    h.proposal?.trim() ||
+    h.world?.trim() ||
+    h.approach?.trim() ||
+    h.budget?.trim() ||
+    h.goals?.trim()
+  );
+}
+
 interface Row {
   teamId: string;
   deviceCode: string;
   data: Project;
   grade: Grade | null;
   summary: Showcase | null;
+}
+
+// ====== חוברת תקצירי מיזמים (booklet) ======
+const TEAL = '#0e4f54';
+const TEAL_DARK = '#0a383c';
+const ORANGE = '#f5a623';
+const CREAM = '#fdf7ec';
+const PAGE_W = 794; // A4 ב-96dpi
+const PAGE_H = 1123;
+
+function bookletPageStyle(extra?: React.CSSProperties): React.CSSProperties {
+  return {
+    width: PAGE_W,
+    height: PAGE_H,
+    position: 'relative',
+    overflow: 'hidden',
+    background: 'white',
+    boxSizing: 'border-box',
+    ...extra,
+  };
+}
+
+// שמש כתומה — המוטיב מלוגו שחרית (חצי עיגול, שטוח מלמטה)
+function Sun({ size, color = ORANGE }: { size: number; color?: string }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size / 2,
+        background: color,
+        borderTopLeftRadius: size,
+        borderTopRightRadius: size,
+      }}
+    />
+  );
+}
+
+function BookletCover({ classLabel }: { classLabel: string }) {
+  return (
+    <div
+      className="booklet-page"
+      style={bookletPageStyle({
+        background: `linear-gradient(165deg, ${TEAL} 0%, ${TEAL_DARK} 100%)`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+      })}
+    >
+      <div style={{ marginTop: 120, marginBottom: 10 }}>
+        <Sun size={260} />
+      </div>
+      <div style={{ flex: 1, textAlign: 'center', padding: '0 60px' }}>
+        <div
+          style={{
+            color: ORANGE,
+            fontWeight: 800,
+            fontSize: 24,
+            letterSpacing: 2,
+            marginBottom: 18,
+          }}
+        >
+          מעבדת המיזמים
+        </div>
+        <div
+          style={{
+            color: CREAM,
+            fontWeight: 900,
+            fontSize: 64,
+            lineHeight: 1.1,
+            marginBottom: 14,
+          }}
+        >
+          אחריות קהילתית
+        </div>
+        <div style={{ color: CREAM, fontSize: 30, fontWeight: 700, opacity: 0.95 }}>
+          חוברת תקצירי מיזמים
+        </div>
+        <div
+          style={{
+            width: 120,
+            height: 4,
+            background: ORANGE,
+            borderRadius: 2,
+            margin: '28px auto',
+          }}
+        />
+        <div style={{ color: CREAM, fontSize: 22, opacity: 0.92, lineHeight: 1.8 }}>
+          מחשבת ישראל · תיכון שחרית
+        </div>
+        {classLabel && (
+          <div style={{ color: CREAM, fontSize: 20, opacity: 0.8, marginTop: 6 }}>
+            {classLabel}
+          </div>
+        )}
+      </div>
+      {/* פס לבן עם הלוגואים — רק בכריכה */}
+      <div
+        style={{
+          width: '100%',
+          background: 'white',
+          padding: '20px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 40,
+        }}
+      >
+        <LogoImg src="/logos/aguda.png" alt="האגודה" height={50} />
+        <LogoImg src="/logos/shacharit.png" alt="שחרית" height={58} />
+        <LogoImg src="/logos/chemed.png" alt="חמד" height={42} />
+      </div>
+    </div>
+  );
+}
+
+function BookletIntro({ classLabel }: { classLabel: string }) {
+  return (
+    <div
+      className="booklet-page"
+      style={bookletPageStyle({ padding: '70px 64px' })}
+    >
+      <div style={{ width: 90, height: 5, background: ORANGE, borderRadius: 3, marginBottom: 28 }} />
+      <h1 style={{ color: TEAL, fontSize: 42, fontWeight: 900, marginBottom: 24 }}>
+        דבר הצוות
+      </h1>
+      <p style={{ fontSize: 20, lineHeight: 2, color: '#1e293b', marginBottom: 18 }}>
+        חוברת זו מאגדת את תקצירי המיזמים החברתיים שפיתחו תלמידי הכיתה במסגרת
+        לימודי מחשבת ישראל — שלב &quot;אחריות קהילתית&quot;. כל מיזם נולד מתוך
+        הקשבה לכאב אמיתי בקהילה, ומציע דרך מעשית לתקן, לחבר ולעשות טוב.
+      </p>
+      <p style={{ fontSize: 20, lineHeight: 2, color: '#1e293b', marginBottom: 40 }}>
+        אנו גאים בתלמידינו על החשיבה, האכפתיות והיצירתיות, ומזמינים אתכם לעיין
+        ברעיונות שצמחו כאן.
+      </p>
+      <div
+        style={{
+          borderInlineStart: `5px solid ${ORANGE}`,
+          background: CREAM,
+          borderRadius: 12,
+          padding: '24px 28px',
+          fontSize: 21,
+          lineHeight: 1.9,
+          color: TEAL,
+        }}
+      >
+        <div style={{ fontWeight: 900, fontSize: 24, marginBottom: 8 }}>
+          ריעות רוקח · רפאל באסל
+        </div>
+        <div style={{ fontWeight: 700 }}>צוות מחשבת ישראל</div>
+        <div style={{ opacity: 0.85 }}>תיכון שחרית</div>
+      </div>
+      {classLabel && (
+        <div style={{ marginTop: 'auto', paddingTop: 40, color: 'var(--text-light)', fontSize: 18 }}>
+          {classLabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BookletToc({
+  entries,
+}: {
+  entries: { name: string; members: string; page: number }[];
+}) {
+  return (
+    <div
+      className="booklet-page"
+      style={bookletPageStyle({ padding: '70px 64px' })}
+    >
+      <div style={{ width: 90, height: 5, background: ORANGE, borderRadius: 3, marginBottom: 28 }} />
+      <h1 style={{ color: TEAL, fontSize: 40, fontWeight: 900, marginBottom: 30 }}>
+        תוכן עניינים
+      </h1>
+      <div style={{ display: 'grid', gap: 14 }}>
+        {entries.map((e, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 10,
+              fontSize: 19,
+            }}
+          >
+            <span style={{ fontWeight: 800, color: TEAL, minWidth: 28 }}>
+              {e.page}.
+            </span>
+            <span style={{ fontWeight: 700, color: '#1e293b' }}>{e.name}</span>
+            {e.members && (
+              <span style={{ color: 'var(--text-light)', fontSize: 16 }}>
+                · {e.members}
+              </span>
+            )}
+            <span
+              style={{
+                flex: 1,
+                borderBottom: '2px dotted #cbd5e1',
+                margin: '0 6px',
+                transform: 'translateY(-4px)',
+              }}
+            />
+            <span style={{ fontWeight: 800, color: TEAL }}>עמ׳ {e.page}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BookletProjectPage({
+  row,
+  number,
+  classLabel,
+}: {
+  row: Row;
+  number: number;
+  classLabel: string;
+}) {
+  const s = row.summary || {};
+  const showScore = !!s.showScore && !!row.grade && gradeTotal(row.grade) > 0;
+  const excellence = !!s.excellence;
+  const members = row.data.teamMembers.filter((m) => m.trim()).join(' · ');
+  return (
+    <div
+      className="booklet-page"
+      style={bookletPageStyle({
+        padding: '48px 56px 40px',
+        display: 'flex',
+        flexDirection: 'column',
+      })}
+    >
+      {/* header — no logos in booklet pages */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          color: 'var(--text-light)',
+          fontSize: 14,
+          fontWeight: 700,
+          borderBottom: `2px solid ${ORANGE}`,
+          paddingBottom: 8,
+          marginBottom: 20,
+        }}
+      >
+        <span>חוברת תקצירי מיזמים · אחריות קהילתית</span>
+        <span>{classLabel}</span>
+      </div>
+
+      {(excellence || showScore) && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          {excellence && (
+            <span
+              style={{
+                background: `linear-gradient(135deg,${ORANGE},#eab308)`,
+                color: 'white',
+                fontWeight: 800,
+                fontSize: 15,
+                padding: '6px 14px',
+                borderRadius: 999,
+              }}
+            >
+              ⭐ מיזם מצטיין
+            </span>
+          )}
+          {showScore && (
+            <span
+              style={{
+                background: '#ede9fe',
+                color: '#5b21b6',
+                fontWeight: 900,
+                fontSize: 15,
+                padding: '6px 14px',
+                borderRadius: 999,
+              }}
+            >
+              {gradeTotal(row.grade)}/{RUBRIC_TOTAL}
+            </span>
+          )}
+        </div>
+      )}
+
+      <h2 style={{ color: TEAL, fontSize: 34, fontWeight: 900, lineHeight: 1.2 }}>
+        {row.data.ventureName}
+      </h2>
+      {members && (
+        <div style={{ color: 'var(--text-light)', fontSize: 17, marginTop: 6, marginBottom: 16 }}>
+          {members}
+        </div>
+      )}
+      {s.tagline && (
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            fontStyle: 'italic',
+            color: ORANGE,
+            lineHeight: 1.5,
+            marginBottom: 18,
+          }}
+        >
+          {s.tagline}
+        </div>
+      )}
+
+      <div style={{ fontSize: 17 }}>
+        <Highlights s={s} marginBottom={s.quotes?.length ? 18 : 0} />
+        <Quotes quotes={s.quotes} />
+      </div>
+
+      <div
+        style={{
+          marginTop: 'auto',
+          paddingTop: 16,
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          color: 'var(--text-light)',
+          fontSize: 13,
+        }}
+      >
+        <span>מעבדת המיזמים · מחשבת ישראל · תיכון שחרית</span>
+        <span>עמ׳ {number}</span>
+      </div>
+    </div>
+  );
+}
+
+function BookletBack() {
+  return (
+    <div
+      className="booklet-page"
+      style={bookletPageStyle({
+        background: `linear-gradient(165deg, ${TEAL} 0%, ${TEAL_DARK} 100%)`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      })}
+    >
+      <Sun size={180} />
+      <div style={{ color: CREAM, fontSize: 30, fontWeight: 800, marginTop: 30 }}>
+        מעבדת המיזמים
+      </div>
+      <div style={{ color: CREAM, fontSize: 20, opacity: 0.9, marginTop: 8 }}>
+        מחשבת ישראל · תיכון שחרית
+      </div>
+      <div
+        style={{
+          marginTop: 50,
+          background: 'white',
+          borderRadius: 14,
+          padding: '16px 28px',
+          display: 'flex',
+          gap: 32,
+          alignItems: 'center',
+        }}
+      >
+        <LogoImg src="/logos/aguda.png" alt="האגודה" height={40} />
+        <LogoImg src="/logos/shacharit.png" alt="שחרית" height={46} />
+        <LogoImg src="/logos/chemed.png" alt="חמד" height={34} />
+      </div>
+    </div>
+  );
 }
 
 export default function ShowcasePage() {
@@ -100,6 +478,10 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
   const [err, setErr] = useState('');
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const [pdf, setPdf] = useState<{ done: number; total: number } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bookletRows, setBookletRows] = useState<Row[] | null>(null);
+  const [bookletStage, setBookletStage] = useState<string>('');
+  const bookletRef = useRef<HTMLDivElement>(null);
 
   const downloadAllPdf = useCallback(async () => {
     const cards = Array.from(
@@ -159,7 +541,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
   }, [classId, load]);
 
   const generateOne = useCallback(
-    async (teamId: string) => {
+    async (teamId: string): Promise<Showcase> => {
       const res = await fetch('/api/teams/showcase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,6 +556,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
             : r,
         ),
       );
+      return json.summary as Showcase;
     },
     [classId],
   );
@@ -199,7 +582,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
   );
 
   const generateAll = useCallback(async () => {
-    const missing = rows.filter((r) => !r.summary?.summary);
+    const missing = rows.filter((r) => !summaryHasContent(r.summary));
     if (missing.length === 0) return;
     setBulk({ done: 0, total: missing.length });
     for (let i = 0; i < missing.length; i++) {
@@ -214,6 +597,98 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
   }, [rows, generateOne]);
 
   const withName = rows.filter((r) => r.data.ventureName?.trim());
+
+  const toggleSelect = useCallback((teamId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  }, []);
+
+  const busyBooklet = !!bookletRows || !!bookletStage;
+
+  const buildBooklet = useCallback(async () => {
+    const chosen = rows.filter(
+      (r) => selected.has(r.teamId) && r.data.ventureName?.trim(),
+    );
+    if (chosen.length === 0) {
+      setErr('בחרו לפחות מיזם אחד לחוברת (סמנו "כלול בחוברת" בכרטיס).');
+      return;
+    }
+    setErr('');
+    const missing = chosen.filter((r) => !summaryHasContent(r.summary));
+    const fresh = new Map<string, Showcase>();
+    for (let i = 0; i < missing.length; i++) {
+      setBookletStage(`מכין תקצירים… ${i + 1}/${missing.length}`);
+      try {
+        fresh.set(missing[i].teamId, await generateOne(missing[i].teamId));
+      } catch {
+        /* skip a failed one */
+      }
+    }
+    const finalRows = chosen
+      .map((r) =>
+        fresh.has(r.teamId)
+          ? { ...r, summary: { ...(r.summary || {}), ...fresh.get(r.teamId)! } }
+          : r,
+      )
+      .filter((r) => summaryHasContent(r.summary));
+    if (finalRows.length === 0) {
+      setBookletStage('');
+      setErr('לא נוצרו תקצירים למיזמים שנבחרו.');
+      return;
+    }
+    setBookletStage('בונה חוברת…');
+    setBookletRows(finalRows); // מפעיל רינדור מוסתר + אפקט הצילום
+  }, [rows, selected, generateOne]);
+
+  // אחרי שהדפים המוסתרים עלו — צלם אותם ל-PDF
+  useEffect(() => {
+    if (!bookletRows) return;
+    let cancelled = false;
+    (async () => {
+      await new Promise((r) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => r(null))),
+      );
+      if (document.fonts?.ready) await document.fonts.ready;
+      const root = bookletRef.current;
+      if (!root) {
+        setBookletRows(null);
+        setBookletStage('');
+        return;
+      }
+      const pages = Array.from(
+        root.querySelectorAll<HTMLElement>('.booklet-page'),
+      );
+      try {
+        const doc = new jsPDF({
+          unit: 'px',
+          format: [PAGE_W, PAGE_H],
+          orientation: 'portrait',
+        });
+        for (let i = 0; i < pages.length; i++) {
+          if (cancelled) return;
+          const url = await cardToPng(pages[i]);
+          if (i > 0) doc.addPage([PAGE_W, PAGE_H], 'portrait');
+          doc.addImage(url, 'PNG', 0, 0, PAGE_W, PAGE_H);
+          setBookletStage(`בונה חוברת… ${i + 1}/${pages.length}`);
+        }
+        doc.save('חוברת-תקצירי-מיזמים.pdf');
+      } catch {
+        setErr('שגיאה ביצירת החוברת. נסו שוב.');
+      } finally {
+        if (!cancelled) {
+          setBookletRows(null);
+          setBookletStage('');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookletRows]);
 
   return (
     <div style={{ minHeight: '100vh', paddingBottom: 60 }}>
@@ -270,8 +745,15 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               : '✨ צור תקצירים לכולם'}
           </button>
           <button
+            onClick={buildBooklet}
+            disabled={busyBooklet || !!bulk || !!pdf || loading}
+            style={{ ...primaryBtn, background: TEAL }}
+          >
+            {bookletStage || `📖 הפק חוברת (${selected.size})`}
+          </button>
+          <button
             onClick={downloadAllPdf}
-            disabled={!!pdf || !!bulk || loading}
+            disabled={!!pdf || !!bulk || busyBooklet || loading}
             style={primaryBtn}
           >
             {pdf ? `מכין PDF… ${pdf.done}/${pdf.total}` : '⬇️ הורד הכל (PDF)'}
@@ -284,6 +766,35 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </header>
+
+      {/* Selection helpers for the booklet */}
+      {withName.length > 0 && (
+        <div
+          className="no-print"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            padding: '10px 16px 0',
+            fontSize: '0.85rem',
+            color: 'var(--text-light)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>לחוברת — סמנו מיזמים:</span>
+          <button
+            onClick={() => setSelected(new Set(withName.map((r) => r.teamId)))}
+            style={miniOutline}
+          >
+            בחר הכל
+          </button>
+          <button onClick={() => setSelected(new Set())} style={miniOutline}>
+            נקה בחירה
+          </button>
+          <span>נבחרו {selected.size}</span>
+        </div>
+      )}
 
       {/* Branded logo band (letterhead) */}
       <div
@@ -367,23 +878,57 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
             <ShowcaseCard
               key={row.teamId}
               row={row}
+              selected={selected.has(row.teamId)}
+              onToggleSelect={() => toggleSelect(row.teamId)}
               onGenerate={generateOne}
               onTogglePref={savePrefs}
             />
           ))}
         </div>
       </main>
+
+      {/* Hidden booklet render area — captured to PDF, off-screen */}
+      {bookletRows && (
+        <div
+          ref={bookletRef}
+          aria-hidden
+          style={{ position: 'fixed', left: -100000, top: 0, pointerEvents: 'none' }}
+        >
+          <BookletCover classLabel={classId} />
+          <BookletIntro classLabel={classId} />
+          <BookletToc
+            entries={bookletRows.map((r, i) => ({
+              name: r.data.ventureName || 'ללא שם',
+              members: r.data.teamMembers.filter((m) => m.trim()).join(' · '),
+              page: i + 1,
+            }))}
+          />
+          {bookletRows.map((r, i) => (
+            <BookletProjectPage
+              key={r.teamId}
+              row={r}
+              number={i + 1}
+              classLabel={classId}
+            />
+          ))}
+          <BookletBack />
+        </div>
+      )}
     </div>
   );
 }
 
 function ShowcaseCard({
   row,
+  selected,
+  onToggleSelect,
   onGenerate,
   onTogglePref,
 }: {
   row: Row;
-  onGenerate: (teamId: string) => Promise<void>;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onGenerate: (teamId: string) => Promise<Showcase>;
   onTogglePref: (
     teamId: string,
     showScore: boolean,
@@ -564,93 +1109,13 @@ function ShowcaseCard({
             </div>
           )}
 
-          {(() => {
-            const h = s.highlights || {};
-            const hasHeadline = !!(h.pain?.trim() || h.proposal?.trim());
-            const hasDetails = !!(
-              h.world?.trim() ||
-              h.approach?.trim() ||
-              h.budget?.trim() ||
-              h.goals?.trim()
-            );
-            const hasAny = !!s.tagline?.trim() || hasHeadline || hasDetails;
+          <Highlights
+            s={s}
+            marginBottom={s.quotes?.length ? 16 : 0}
+            showPlaceholder
+          />
 
-            if (!hasAny) {
-              return (
-                <p
-                  className="no-print"
-                  style={{ color: 'var(--text-light)', fontStyle: 'italic' }}
-                >
-                  עדיין לא נוצר תקציר — לחצו &quot;✨ צור תקציר&quot; למטה.
-                </p>
-              );
-            }
-
-            return (
-              <div
-                style={{
-                  display: 'grid',
-                  gap: 10,
-                  background: '#f8fafc',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  padding: '14px 16px',
-                  marginBottom: s.quotes?.length ? 16 : 0,
-                }}
-              >
-                <Highlight
-                  icon="💔"
-                  label="הכאב"
-                  hint="למה נולד המיזם"
-                  text={h.pain}
-                />
-                <Highlight icon="💡" label="הפתרון המוצע" text={h.proposal} />
-                {hasHeadline && hasDetails && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      margin: '2px 0',
-                      color: 'var(--text-light)',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                    }}
-                  >
-                    <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                    העמקה ופרטים
-                    <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                  </div>
-                )}
-                <Highlight icon="🔍" label="מחקר שטח" text={h.world} />
-                <Highlight icon="🛠️" label="תוכנית הפעולה" text={h.approach} />
-                <Highlight icon="💰" label="תקציב" text={h.budget} />
-                <Highlight icon="🎯" label="יעדים" text={h.goals} />
-              </div>
-            );
-          })()}
-
-          {s.quotes && s.quotes.length > 0 && (
-            <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
-              {s.quotes.map((q, i) => (
-                <blockquote
-                  key={i}
-                  style={{
-                    margin: 0,
-                    borderInlineStart: '4px solid var(--accent)',
-                    background: '#fffbeb',
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    fontStyle: 'italic',
-                    color: '#78350f',
-                    lineHeight: 1.7,
-                  }}
-                >
-                  ״{q}״
-                </blockquote>
-              ))}
-            </div>
-          )}
+          <Quotes quotes={s.quotes} />
 
           <div
             style={{
@@ -682,6 +1147,21 @@ function ShowcaseCard({
           padding: '0 4px',
         }}
       >
+        <label
+          style={{
+            ...miniLabel,
+            fontWeight: 700,
+            color: selected ? '#5b21b6' : 'var(--text)',
+            background: selected ? '#f5f3ff' : 'transparent',
+            border: '1px solid',
+            borderColor: selected ? '#c4b5fd' : 'var(--border)',
+            borderRadius: 8,
+            padding: '6px 10px',
+          }}
+        >
+          <input type="checkbox" checked={selected} onChange={onToggleSelect} />
+          📖 לחוברת
+        </label>
         <button onClick={generate} disabled={busy} style={miniPrimary}>
           {busy ? '⏳ מנסח…' : hasContent ? '↻ רענן תקציר' : '✨ צור תקציר'}
         </button>
@@ -756,6 +1236,100 @@ function Highlight({
         <span style={{ fontWeight: 800, color: 'var(--primary-dark)' }}>: </span>
         <span style={{ color: 'var(--text)' }}>{text}</span>
       </div>
+    </div>
+  );
+}
+
+function Highlights({
+  s,
+  marginBottom,
+  showPlaceholder,
+}: {
+  s: Showcase;
+  marginBottom?: number;
+  showPlaceholder?: boolean;
+}) {
+  const h = s.highlights || {};
+  const hasHeadline = !!(h.pain?.trim() || h.proposal?.trim());
+  const hasDetails = !!(
+    h.world?.trim() ||
+    h.approach?.trim() ||
+    h.budget?.trim() ||
+    h.goals?.trim()
+  );
+  const hasAny = !!s.tagline?.trim() || hasHeadline || hasDetails;
+
+  if (!hasAny) {
+    return showPlaceholder ? (
+      <p
+        className="no-print"
+        style={{ color: 'var(--text-light)', fontStyle: 'italic' }}
+      >
+        עדיין לא נוצר תקציר — לחצו &quot;✨ צור תקציר&quot; למטה.
+      </p>
+    ) : null;
+  }
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gap: 10,
+        background: '#f8fafc',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        padding: '14px 16px',
+        marginBottom: marginBottom ?? 0,
+      }}
+    >
+      <Highlight icon="💔" label="הכאב" hint="למה נולד המיזם" text={h.pain} />
+      <Highlight icon="💡" label="הפתרון המוצע" text={h.proposal} />
+      {hasHeadline && hasDetails && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            margin: '2px 0',
+            color: 'var(--text-light)',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+          }}
+        >
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          העמקה ופרטים
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+      )}
+      <Highlight icon="🔍" label="מחקר שטח" text={h.world} />
+      <Highlight icon="🛠️" label="תוכנית הפעולה" text={h.approach} />
+      <Highlight icon="💰" label="תקציב" text={h.budget} />
+      <Highlight icon="🎯" label="יעדים" text={h.goals} />
+    </div>
+  );
+}
+
+function Quotes({ quotes }: { quotes?: string[] }) {
+  if (!quotes || quotes.length === 0) return null;
+  return (
+    <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
+      {quotes.map((q, i) => (
+        <blockquote
+          key={i}
+          style={{
+            margin: 0,
+            borderInlineStart: '4px solid var(--accent)',
+            background: '#fffbeb',
+            padding: '10px 14px',
+            borderRadius: 8,
+            fontStyle: 'italic',
+            color: '#78350f',
+            lineHeight: 1.7,
+          }}
+        >
+          ״{q}״
+        </blockquote>
+      ))}
     </div>
   );
 }
