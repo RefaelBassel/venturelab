@@ -57,6 +57,12 @@ function imageExists(src: string): Promise<boolean> {
   });
 }
 
+// שמות התלמידים לתצוגה — עריכת המורה גוברת על מה שהתלמידים הזינו
+function displayMembers(row: Row): string {
+  const override = (row.summary?.members ?? '').trim();
+  return override || row.data.teamMembers.filter((m) => m.trim()).join(' · ');
+}
+
 function summaryHasContent(s: Showcase | null | undefined): boolean {
   if (!s) return false;
   const h = s.highlights || {};
@@ -327,7 +333,7 @@ function BookletProjectPage({
   const s = row.summary || {};
   const showScore = !!s.showScore && !!row.grade && gradeTotal(row.grade) > 0;
   const excellence = !!s.excellence;
-  const members = row.data.teamMembers.filter((m) => m.trim()).join(' · ');
+  const members = displayMembers(row);
   return (
     <div
       className="booklet-page"
@@ -651,6 +657,26 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ classId, teamId, showScore, excellence }),
+        });
+      } catch {}
+    },
+    [],
+  );
+
+  const saveMembers = useCallback(
+    async (classId: string, teamId: string, members: string) => {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.teamId === teamId
+            ? { ...r, summary: { ...(r.summary || {}), members } }
+            : r,
+        ),
+      );
+      try {
+        await fetch('/api/teams/showcase/prefs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ classId, teamId, members }),
         });
       } catch {}
     },
@@ -1041,6 +1067,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
               onToggleSelect={() => toggleSelect(row.teamId)}
               onGenerate={generateOne}
               onTogglePref={savePrefs}
+              onSaveMembers={saveMembers}
             />
           ))}
         </div>
@@ -1067,7 +1094,7 @@ function ShowcaseView({ onBack }: { onBack: () => void }) {
           <BookletToc
             entries={bookletRows.map((r, i) => ({
               name: r.data.ventureName || 'ללא שם',
-              members: r.data.teamMembers.filter((m) => m.trim()).join(' · '),
+              members: displayMembers(r),
               cls: r.classId,
               page: i + 1,
             }))}
@@ -1093,6 +1120,7 @@ function ShowcaseCard({
   onToggleSelect,
   onGenerate,
   onTogglePref,
+  onSaveMembers,
 }: {
   row: Row;
   selected: boolean;
@@ -1104,18 +1132,20 @@ function ShowcaseCard({
     showScore: boolean,
     excellence: boolean,
   ) => void;
+  onSaveMembers: (classId: string, teamId: string, members: string) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [dlErr, setDlErr] = useState('');
+  const [membersDraft, setMembersDraft] = useState(displayMembers(row));
 
   const s = row.summary || {};
   const showScore = !!s.showScore;
   const excellence = !!s.excellence;
   const hasGrade = row.grade && gradeTotal(row.grade) > 0;
   const score = row.grade ? gradeTotal(row.grade) : 0;
-  const members = row.data.teamMembers.filter((m) => m.trim()).join(' · ');
+  const members = displayMembers(row);
 
   const h = s.highlights || {};
   const hasContent = !!(
@@ -1349,6 +1379,26 @@ function ShowcaseCard({
           <input type="checkbox" checked={selected} onChange={onToggleSelect} />
           📖 לחוברת
         </label>
+        <input
+          value={membersDraft}
+          onChange={(e) => setMembersDraft(e.target.value)}
+          onBlur={() => {
+            const v = membersDraft.trim();
+            if (v !== displayMembers(row)) {
+              onSaveMembers(row.classId, row.teamId, v);
+            }
+          }}
+          placeholder="שמות התלמידים"
+          title="עריכת שמות התלמידים לתצוגה ולחוברת"
+          style={{
+            flex: 1,
+            minWidth: 150,
+            padding: '6px 10px',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            fontSize: '0.82rem',
+          }}
+        />
         <button onClick={generate} disabled={busy} style={miniPrimary}>
           {busy ? '⏳ מנסח…' : hasContent ? '↻ רענן תקציר' : '✨ צור תקציר'}
         </button>

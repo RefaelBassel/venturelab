@@ -32,6 +32,7 @@ export interface Showcase {
   summary?: string;
   highlights?: ShowcaseHighlights;
   quotes?: string[];
+  members?: string; // שמות תלמידים לתצוגה — עריכת מורה (גובר על data.teamMembers)
   showScore?: boolean;
   excellence?: boolean;
   updatedAt?: number;

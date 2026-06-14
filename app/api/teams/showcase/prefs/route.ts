@@ -32,11 +32,11 @@ export async function POST(req: NextRequest) {
       ? JSON.parse(existingRes.rows[0].data as string)
       : {};
 
-  const merged = {
-    ...existing,
-    showScore: !!body.showScore,
-    excellence: !!body.excellence,
-  };
+  // עדכן רק שדות שנשלחו במפורש — כך ששמירת שמות לא מאפסת ציון/הצטיינות ולהפך
+  const merged = { ...existing };
+  if (body.showScore !== undefined) merged.showScore = !!body.showScore;
+  if (body.excellence !== undefined) merged.excellence = !!body.excellence;
+  if (body.members !== undefined) merged.members = String(body.members);
 
   const id = `${classId}__${teamId}`;
   await db.execute({
